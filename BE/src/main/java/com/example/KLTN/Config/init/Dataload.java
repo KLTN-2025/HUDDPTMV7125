@@ -16,7 +16,7 @@ import javax.swing.text.html.parser.Entity;
 
 @Component
 
-public class Dataload implements ApplicationRunner {
+public class n  Dataload implements ApplicationRunner {
 
     private final RoleService roleService;
     private final UserService userService;
