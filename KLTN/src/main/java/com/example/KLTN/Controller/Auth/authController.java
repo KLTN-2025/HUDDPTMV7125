@@ -33,7 +33,7 @@ public class authController {
     private final AuthenticationManager authenticationManager;
     private final HttpResponseUtil responseUtil;
     private final WallettService wallettService;
-private final  WebClient    
+
     public authController(UserService userService, RoleService roleService, JwtUtill jwtUtil, EmaiCl emailUtil, AuthenticationManager authenticationManager, HttpResponseUtil responseUtil, WallettService wallettService) {
         this.userService = userService;
         this.roleService = roleService;

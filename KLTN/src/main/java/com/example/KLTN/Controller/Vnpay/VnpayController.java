@@ -21,7 +21,9 @@
         }
         @PostMapping("/create")
         public ResponseEntity<?> createPayment(@RequestParam("amount") long amount,
-                                               @RequestParam("orderInfo") String orderInfo,
+                                               @RequestParam("git add .\n" +
+                                                       "git commit -m \"save local changes\"\n" +
+                                                       "git pull origin main") String orderInfo,
                                                HttpServletRequest request) {
             String paymentUrl = vnpayService.createPaymentUrl(amount, orderInfo, request);
             return ResponseEntity.ok(paymentUrl);
