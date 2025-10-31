@@ -15,8 +15,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import javax.swing.text.html.parser.Entity;
 
 @Component
-
-public class Dataload implements ApplicationRunner {
+public class  Dataload implements ApplicationRunner {
 
     private final RoleService roleService;
     private final UserService userService;

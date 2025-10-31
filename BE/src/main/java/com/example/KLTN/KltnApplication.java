@@ -8,5 +8,4 @@ public class KltnApplication {
     public static void main(String[] args) {
         SpringApplication.run(KltnApplication.class, args);
     }
-
 }

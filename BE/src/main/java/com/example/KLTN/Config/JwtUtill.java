@@ -19,7 +19,7 @@ public class JwtUtill {
 
     public JwtUtill() {
     }
-
+    long expirationTime = 1000 * 60 * 60;
     public String generateToken(String username) {
         return Jwts.builder().setSubject(username).setIssuedAt(new Date()).setExpiration(new Date(System.currentTimeMillis() + 36000000L)).signWith(Keys.hmacShaKeyFor("TXlTdXBlclNlY3JldEtleUZvckpXVEdlbmVyYXRpb24xMjM0NTY3ODkwIUAj".getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256).compact();
     }

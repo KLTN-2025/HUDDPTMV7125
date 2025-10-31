@@ -34,7 +34,8 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/auth/vnpay/create").permitAll()
+                        .requestMatchers("/api/auth/create").permitAll()
+                        .requestMatchers("/api/auth/vnpay-return").permitAll()
                         .anyRequest().authenticated()
                 )
                 // Stateless JWT
