@@ -5,7 +5,7 @@ import org.springframework.data.repository.CrudRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface UserRepository extends CrudRepository<UsersEntity, Integer> {
+public interface UserRepository extends CrudRepository<UsersEntity, Long> {
     boolean existsByUsername(String email);
     UsersEntity findByUsername(String email);
     Boolean existsByEmail(String email);

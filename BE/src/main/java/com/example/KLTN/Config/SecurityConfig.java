@@ -34,14 +34,18 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/api/auth/create").permitAll()
-                        .requestMatchers("/api/auth/vnpay-return").permitAll()
+                        .requestMatchers("/api/vnpay/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/withdraw/create").hasAnyRole("OWNER","USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/withdraw/approve/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/withdraw/reject/**").hasRole("ADMIN")
                         .anyRequest().authenticated()
                 )
+
                 // Stateless JWT
 
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authenticationProvider(authenticationProvider)
+
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

@@ -1,54 +1,68 @@
-        package com.example.KLTN.Controller.Vnpay;
+package com.example.KLTN.Controller.Vnpay;
+
+import com.example.KLTN.Entity.UsersEntity;
+import com.example.KLTN.Service.TransactitonsService;
+import com.example.KLTN.Service.UserService;
+import com.example.KLTN.Service.VnpayService;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.neo4j.Neo4jProperties;
+import org.springframework.boot.autoconfigure.pulsar.PulsarProperties;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
 
+import java.util.HashMap;
+import java.util.Map;
 
+@RestController
+@RequestMapping("/api/vnpay")
+@CrossOrigin("*")
+public class VnpayController {
 
-        import com.example.KLTN.Service.VnpayService;
-        import jakarta.servlet.http.HttpServletRequest;
-        import org.springframework.beans.factory.annotation.Autowired;
-        import org.springframework.http.HttpStatus;
-        import org.springframework.http.ResponseEntity;
-        import org.springframework.web.bind.annotation.*;
+    @Autowired
+    private VnpayService vnPayService;
+@Autowired
+    private TransactitonsService  transactitonsService;
+@Autowired
+private UserService userService;
 
-        import java.util.Map;
-        import java.util.stream.Collectors;
+    @PostMapping("/create")
+    public ResponseEntity<?> createPayment(HttpServletRequest request,
+                                           @RequestParam long amount,
+                                           @RequestParam String orderInfo,
+                                           @RequestParam String orderType) {
 
-        @RestController
-        @RequestMapping("/api/auth")
-        public class VnpayController {
-            @Autowired
-            private VnpayService vnPayService;
+        String url = vnPayService.createRedirectUrl(request, amount, orderInfo, orderType);
+        return ResponseEntity.ok(Map.of("url", url));
+    }
+    @GetMapping("/return")
+    public ResponseEntity<?> vnpayReturn(HttpServletRequest request) {
+        // Chuyển Map<String,String[]> sang Map<String,String>
+        Map<String, String> paramMap = new HashMap<>();
+        request.getParameterMap().forEach((k,v) -> paramMap.put(k, v[0]));
+        String responseCode = paramMap.get("vnp_ResponseCode");
 
-            @PostMapping("/create")
-            public ResponseEntity<?> createPayment(HttpServletRequest request,
-                                                   @RequestParam long amount,
-                                                   @RequestParam String orderInfo,
-                                                   @RequestParam String orderType) {
-                String redirectUrl = vnPayService.createRedirectUrl(request, amount, orderInfo, orderType);
-                return ResponseEntity.ok(Map.of("url", redirectUrl));
-            }
-
-            @GetMapping("/vnpay-return")
-            public ResponseEntity<?> vnpayReturn(HttpServletRequest request) {
-                Map<String, String> params = request.getParameterMap().entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue()[0]));
-
-                boolean isValid = vnPayService.validateReturn(params);
-                if (!isValid) {
-                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid signature");
-                }
-
-                String txnRef = params.get("vnp_TxnRef");
-                String responseCode = params.get("vnp_ResponseCode");
-                String amount = params.get("vnp_Amount");
-                // Xử lý cập nhật đơn hàng trong DB theo txnRef, amount, responseCode
-
-                if ("00".equals(responseCode)) {
-                    // thành công
-                    return ResponseEntity.ok("Payment successful: " + txnRef);
-                } else {
-                    // thất bại
-                    return ResponseEntity.ok("Payment failed: " + txnRef);
-                }
-            }
+        if (!paramMap.containsKey("vnp_SecureHash")) {
+            transactitonsService.failedPayment(request);
+            return ResponseEntity.ok("User canceled payment.");
         }
+
+        boolean valid = vnPayService.validateReturn(paramMap);
+
+        if (valid && "00".equals(responseCode)) {
+            transactitonsService.SucseccPayment(request);
+            return ResponseEntity.ok("Thanh toán thành công!");
+        } else if (valid) {
+            transactitonsService.failedPayment(request);
+            return ResponseEntity.ok("Giao dịch không thành công. Mã lỗi: " + responseCode);
+        } else {
+            transactitonsService.failedPayment(request);
+            return ResponseEntity.badRequest().body("Invalid signature!");
+        }
+    }
+
+
+}

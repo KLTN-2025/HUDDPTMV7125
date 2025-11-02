@@ -9,6 +9,11 @@ import org.springframework.stereotype.Service;
 @Service
 public class UserService implements UserserviceImpl {
     @Override
+    public UsersEntity findById(Long id) {
+        return userRepository.findById(id).orElse(null);
+    }
+
+    @Override
     public UsersEntity findByEmail(String email) {
         return userRepository.findByEmail(email);
     }

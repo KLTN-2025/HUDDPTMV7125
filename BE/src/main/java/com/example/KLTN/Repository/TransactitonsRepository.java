@@ -9,5 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface TransactitonsRepository extends JpaRepository<TransactitonsEntity, Long> {
-   TransactitonsEntity findByVnpTxnRef(String vnpTxnRef);
+
+    TransactitonsEntity findByVnpTxnRef(String vnpTxnRef);
 }

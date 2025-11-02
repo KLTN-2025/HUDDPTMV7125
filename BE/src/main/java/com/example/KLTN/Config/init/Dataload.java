@@ -49,6 +49,7 @@ public class  Dataload implements ApplicationRunner {
             UsersEntity admin = new UsersEntity(); // tạo đối tượng rỗng
             admin.setUsername("admin");
             admin.setEmail("admin@example.com");
+            admin.setVerified(true);
             admin.setPassword(jwtUtill.passwordEncoder().encode("123456"));
             admin.setRole(role); // gán role ADMIN
             admin.setPhone("0965160610");
