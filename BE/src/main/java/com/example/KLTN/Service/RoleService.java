@@ -17,7 +17,7 @@ public class RoleService implements RoleServiceImlp {
     }
 
     @Override
-    public Boolean ExistByRolename(String rolename) {
+    public Boolean existByRolename(String rolename) {
         return  rolesRepository.existsByName(rolename);
     }
 

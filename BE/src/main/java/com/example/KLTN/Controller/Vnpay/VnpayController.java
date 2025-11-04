@@ -24,10 +24,10 @@ public class VnpayController {
 
     @Autowired
     private VnpayService vnPayService;
-@Autowired
-    private TransactitonsService  transactitonsService;
-@Autowired
-private UserService userService;
+    @Autowired
+    private TransactitonsService transactitonsService;
+    @Autowired
+    private UserService userService;
 
     @PostMapping("/create")
     public ResponseEntity<?> createPayment(HttpServletRequest request,
@@ -38,11 +38,12 @@ private UserService userService;
         String url = vnPayService.createRedirectUrl(request, amount, orderInfo, orderType);
         return ResponseEntity.ok(Map.of("url", url));
     }
+
     @GetMapping("/return")
     public ResponseEntity<?> vnpayReturn(HttpServletRequest request) {
         // Chuyển Map<String,String[]> sang Map<String,String>
         Map<String, String> paramMap = new HashMap<>();
-        request.getParameterMap().forEach((k,v) -> paramMap.put(k, v[0]));
+        request.getParameterMap().forEach((k, v) -> paramMap.put(k, v[0]));
         String responseCode = paramMap.get("vnp_ResponseCode");
 
         if (!paramMap.containsKey("vnp_SecureHash")) {

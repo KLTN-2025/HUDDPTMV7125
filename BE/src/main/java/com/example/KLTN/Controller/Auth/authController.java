@@ -1,16 +1,17 @@
 package com.example.KLTN.Controller.Auth;
 
 import com.example.KLTN.Config.HTTPstatus.HttpResponseUtil;
-import com.example.KLTN.Config.JwtUtill;
-import com.example.KLTN.Config.vnpayConfig.Email.EmaiCl;
-import com.example.KLTN.Config.vnpayConfig.Email.RandomOTP;
-import com.example.KLTN.DTO.*;
+import com.example.KLTN.Config.config.JwtUtill;
+import com.example.KLTN.Config.Email.EmaiCl;
+import com.example.KLTN.Config.Email.RandomOTP;
+import com.example.KLTN.dto.*;
 import com.example.KLTN.Entity.RoleEntity;
 import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Entity.WalletsEntity;
 import com.example.KLTN.Service.RoleService;
 import com.example.KLTN.Service.UserService;
 import com.example.KLTN.Service.WallettService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 
 @RestController
 @RequestMapping("/api/auth")
+@RequiredArgsConstructor
 public class authController {
     private final UserService userService;
     private final RoleService roleService;
@@ -34,19 +36,11 @@ public class authController {
     private final HttpResponseUtil responseUtil;
     private final WallettService wallettService;
 
-    public authController(UserService userService, RoleService roleService, JwtUtill jwtUtil, EmaiCl emailUtil, AuthenticationManager authenticationManager, HttpResponseUtil responseUtil, WallettService wallettService) {
-        this.userService = userService;
-        this.roleService = roleService;
-        this.jwtUtil = jwtUtil;
-        this.emailUtil = emailUtil;
-        this.authenticationManager = authenticationManager;
-        this.responseUtil = responseUtil;
-        this.wallettService = wallettService;
-    }
+
 
     // ===================== REGISTER =====================
     @PostMapping("/register")
-    public ResponseEntity<Apireponsi<UsersEntity>> register(@RequestBody RegisterUserDto dto) {
+    public ResponseEntity<Apireponsi<UsersEntity>> registerUser(@RequestBody RegisterUserDto dto) {
         try {
             if (userService.Exists(dto.getUsername())) {
                 return responseUtil.conflict("Username đã tồn tại");
@@ -55,6 +49,37 @@ public class authController {
                 return responseUtil.conflict("Email đã tồn tại");
             }
             RoleEntity role = roleService.finByRolename("USER");
+            if (role == null) {
+                return responseUtil.badRequest("ROLE không tồn tại");
+            }
+            UsersEntity user = new UsersEntity();
+
+            user.setUsername(dto.getUsername());
+            user.setPassword(jwtUtil.passwordEncoder().encode(dto.getPassword()));
+            user.setEmail(dto.getEmail());
+            user.setPhone(dto.getPhone());
+            user.setRole(role);
+            user.setVerified(false);
+            userService.SaveUser(user);
+            WalletsEntity wallet = new WalletsEntity();
+            wallet.setUser(user);
+            wallet.setBalance(BigDecimal.ZERO);
+            wallettService.SaveWallet(wallet);
+            return responseUtil.created("Đăng ký thành công. Vui lòng gửi OTP để xác nhận Gmail.", user);
+        } catch (Exception e) {
+            return responseUtil.error("Lỗi khi đăng ký tài khoản", e);
+        }
+    }
+    @PostMapping("/registerOwner")
+    public ResponseEntity<Apireponsi<UsersEntity>> registerOwner(@RequestBody RegisterUserDto dto) {
+        try {
+            if (userService.Exists(dto.getUsername())) {
+                return responseUtil.conflict("Username đã tồn tại");
+            }
+            if (userService.ExistsEmail(dto.getEmail())) {
+                return responseUtil.conflict("Email đã tồn tại");
+            }
+            RoleEntity role = roleService.finByRolename("OWNER");
             if (role == null) {
                 return responseUtil.badRequest("ROLE không tồn tại");
             }
