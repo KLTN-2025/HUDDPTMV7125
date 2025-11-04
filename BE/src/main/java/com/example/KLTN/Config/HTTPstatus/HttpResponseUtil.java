@@ -1,6 +1,6 @@
 package com.example.KLTN.Config.HTTPstatus;
 
-import com.example.KLTN.DTO.Apireponsi;
+import com.example.KLTN.dto.Apireponsi;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;

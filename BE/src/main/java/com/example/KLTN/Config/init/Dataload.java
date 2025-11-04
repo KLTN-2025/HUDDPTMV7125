@@ -1,18 +1,13 @@
 package com.example.KLTN.Config.init;
 
-import com.example.KLTN.Config.JwtUtill;
-import com.example.KLTN.DTO.Apireponsi;
+import com.example.KLTN.Config.config.JwtUtill;
 import com.example.KLTN.Entity.RoleEntity;
 import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Service.RoleService;
 import com.example.KLTN.Service.UserService;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.bind.annotation.GetMapping;
-
-import javax.swing.text.html.parser.Entity;
 
 @Component
 public class  Dataload implements ApplicationRunner {
@@ -29,9 +24,9 @@ public class  Dataload implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
-        if (!roleService.ExistByRolename("ADMIN")
-                && !roleService.ExistByRolename("OWNER")
-                && !roleService.ExistByRolename("USER")) {
+        if (!roleService.existByRolename("ADMIN")
+                && !roleService.existByRolename("OWNER")
+                && !roleService.existByRolename("USER")) {
             RoleEntity role1 = new RoleEntity();
             role1.setName("ADMIN");
             roleService.SaveRole(role1);
@@ -49,6 +44,7 @@ public class  Dataload implements ApplicationRunner {
             UsersEntity admin = new UsersEntity(); // tạo đối tượng rỗng
             admin.setUsername("admin");
             admin.setEmail("admin@example.com");
+            admin.setVerified(true);
             admin.setPassword(jwtUtill.passwordEncoder().encode("123456"));
             admin.setRole(role); // gán role ADMIN
             admin.setPhone("0965160610");

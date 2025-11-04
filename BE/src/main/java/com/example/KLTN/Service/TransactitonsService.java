@@ -6,134 +6,123 @@ import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Entity.WalletsEntity;
 import com.example.KLTN.Repository.TransactitonsRepository;
 import com.example.KLTN.Service.Impl.TransactitonsServiceImpl;
-import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
-import java.util.Map;
 
 @Service
 public class TransactitonsService implements TransactitonsServiceImpl {
     private final UserService userService;
     private final HttpResponseUtil responseUtil;
-
     private final WallettService walletService;
+    private final TransactitonsRepository transactitonsRepository;
 
+    public TransactitonsService(UserService userService,
+                                HttpResponseUtil responseUtil,
+                                WallettService walletService,
+                                TransactitonsRepository transactitonsRepository) {
+        this.userService = userService;
+        this.responseUtil = responseUtil;
+        this.walletService = walletService;
+        this.transactitonsRepository = transactitonsRepository;
+    }
+
+    // ================== Callback Failed ==================
     @Override
     @Transactional
     public void failedPayment(HttpServletRequest request) {
-        String vnp_ResponseCode = request.getParameter("vnp_ResponseCode");
-        String vnp_TxnRef = request.getParameter("vnp_TxnRef");
+        String vnpTxnRef = request.getParameter("vnp_TxnRef");
         String orderInfo = request.getParameter("vnp_OrderInfo");
         String amountStr = request.getParameter("vnp_Amount");
-
-        // Ghi log tất cả tham số callback
+        Long id = null;
+        if (orderInfo.contains("|userId:")) {
+            try {
+                String[] parts = orderInfo.split("\\|userId:");
+                id = Long.parseLong(parts[1]);
+            } catch (Exception e) {
+                System.err.println("⚠ Không parse được userId từ orderInfo: " + orderInfo);
+            }
+        }
         System.out.println("===== VNPAY CALLBACK (FAILED) =====");
-        request.getParameterMap().forEach((k, v) ->
-                System.out.println(k + " = " + Arrays.toString(v))
-        );
+        System.out.println("vnp_TxnRef = " + vnpTxnRef);
+        System.out.println("vnp_OrderInfo = " + orderInfo);
+        System.out.println("vnp_Amount = " + amountStr);
         System.out.println("==================================");
-
-        // Nếu VNPay không gửi amount hoặc mã đơn hàng → không lưu giao dịch
-        if (amountStr == null || vnp_TxnRef == null) {
+        UsersEntity users = userService.findById(id);
+WalletsEntity wallets =walletService.GetWallet(users);
+        if (amountStr == null || vnpTxnRef == null) {
             System.err.println("⚠ VNPay callback thất bại không đủ dữ liệu -> Bỏ qua lưu DB");
             return;
         }
 
         BigDecimal amount = new BigDecimal(amountStr).divide(BigDecimal.valueOf(100));
+TransactitonsEntity transactitons = new TransactitonsEntity();
 
-        // Nếu cần, có thể truy xuất user theo vnp_TxnRef thay vì SecurityContext
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = (auth != null) ? auth.getName() : "unknown";
-        UsersEntity users = userService.FindByUsername(username);
-        if (users == null) {
-            System.err.println("⚠ Không tìm thấy user -> callback có thể đến từ VNPay server");
+        if (wallets == null) {
+            System.err.println("⚠ Không tìm thấy giao dịch -> callback có thể đến từ VNPay server");
             return;
         }
 
-        WalletsEntity walletsEntity = walletService.GetWallet(users);
-        if (walletsEntity == null) {
-            responseUtil.notFound("Không tồn tại ví");
-            return;
-        }
-
-        TransactitonsEntity transactitonsEntity = new TransactitonsEntity();
-        transactitonsEntity.setWallet(walletsEntity);
-        transactitonsEntity.setAmount(amount);
-        transactitonsEntity.setCreatedAt(LocalDateTime.now());
-        transactitonsEntity.setVnpTxnRef(vnp_TxnRef);
-        transactitonsEntity.setVnpOrderInfo(orderInfo);
-        transactitonsEntity.setStatus(TransactitonsEntity.Status.failed);
-        transactitonsEntity.setType(TransactitonsEntity.statustype.withdraw);
-        SaveTransactions(transactitonsEntity);
+        transactitons.setStatus(TransactitonsEntity.Status.failed);
+        transactitons.setAmount(amount);
+        transactitons.setVnpOrderInfo(orderInfo);
+        transactitons.setCreatedAt(LocalDateTime.now());
+        transactitons.setWallet(wallets);
+        transactitons.setType(TransactitonsEntity.statustype.deposit);
+        transactitons.setVnpTxnRef(vnpTxnRef);
+        transactitonsRepository.save(transactitons);
     }
 
     @Override
     @Transactional
     public void SucseccPayment(HttpServletRequest request) {
-        String vnp_ResponseCode = request.getParameter("vnp_ResponseCode");
-        String vnp_TxnRef = request.getParameter("vnp_TxnRef");
+        String vnpTxnRef = request.getParameter("vnp_TxnRef");
         String orderInfo = request.getParameter("vnp_OrderInfo");
         String amountStr = request.getParameter("vnp_Amount");
-
-        // Ghi log tất cả tham số callback
-        System.out.println("===== VNPAY CALLBACK (FAILED) =====");
-        request.getParameterMap().forEach((k, v) ->
-                System.out.println(k + " = " + Arrays.toString(v))
-        );
+        Long id = null;
+        if (orderInfo.contains("|userId:")) {
+            try {
+                String[] parts = orderInfo.split("\\|userId:");
+                id = Long.parseLong(parts[1]);
+            } catch (Exception e) {
+                System.err.println("⚠ Không parse được userId từ orderInfo: " + orderInfo);
+            }
+        }
+        UsersEntity users = userService.findById(id);
+        WalletsEntity wallets =walletService.GetWallet(users);
+        System.out.println("===== VNPAY CALLBACK (SUCCESS) =====");
+        System.out.println("vnp_TxnRef = " + vnpTxnRef);
+        System.out.println("vnp_OrderInfo = " + orderInfo);
+        System.out.println("vnp_Amount = " + amountStr);
         System.out.println("==================================");
 
-        // Nếu VNPay không gửi amount hoặc mã đơn hàng → không lưu giao dịch
-        if (amountStr == null || vnp_TxnRef == null) {
+        if (amountStr == null || vnpTxnRef == null) {
             System.err.println("⚠ VNPay callback thất bại không đủ dữ liệu -> Bỏ qua lưu DB");
             return;
         }
 
         BigDecimal amount = new BigDecimal(amountStr).divide(BigDecimal.valueOf(100));
+     TransactitonsEntity transactitons = new TransactitonsEntity();
 
-        // Nếu cần, có thể truy xuất user theo vnp_TxnRef thay vì SecurityContext
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        String username = (auth != null) ? auth.getName() : "unknown";
-        UsersEntity users = userService.FindByUsername(username);
-        if (users == null) {
-            System.err.println("⚠ Không tìm thấy user -> callback có thể đến từ VNPay server");
-            return;
-        }
 
-        WalletsEntity walletsEntity = walletService.GetWallet(users);
-        if (walletsEntity == null) {
-            responseUtil.notFound("Không tồn tại ví");
-            return;
-        }
+        wallets.setBalance(wallets.getBalance().add(amount));
+        walletService.SaveWallet(wallets);
 
-        TransactitonsEntity transactitonsEntity = new TransactitonsEntity();
-        transactitonsEntity.setWallet(walletsEntity);
-        transactitonsEntity.setAmount(amount);
-        transactitonsEntity.setCreatedAt(LocalDateTime.now());
-        transactitonsEntity.setVnpTxnRef(vnp_TxnRef);
-        transactitonsEntity.setVnpOrderInfo(orderInfo);
-        transactitonsEntity.setStatus(TransactitonsEntity.Status.success);
-        transactitonsEntity.setType(TransactitonsEntity.statustype.withdraw);
-        SaveTransactions(transactitonsEntity);
+        transactitons.setStatus(TransactitonsEntity.Status.success);
+        transactitons.setAmount(amount);
+        transactitons.setVnpOrderInfo(orderInfo);
+        transactitons.setCreatedAt(LocalDateTime.now());
+        transactitons.setVnpTxnRef(vnpTxnRef);
+        transactitons.setWallet(wallets);
+        transactitons.setType(TransactitonsEntity.statustype.deposit);
+        transactitonsRepository.save(transactitons);
+
+
     }
-
-
-    private final TransactitonsRepository transactitonsRepository;
-
-    public TransactitonsService(UserService userService, HttpResponseUtil responseUtil, WallettService walletService, TransactitonsRepository transactitonsRepository) {
-        this.userService = userService;
-        this.responseUtil = responseUtil;
-
-        this.walletService = walletService;
-        this.transactitonsRepository = transactitonsRepository;
-    }
-
     @Override
     public void SaveTransactions(TransactitonsEntity transactitonsEntity) {
         transactitonsRepository.save(transactitonsEntity);
