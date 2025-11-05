@@ -4,6 +4,7 @@ import com.example.KLTN.Config.HTTPstatus.HttpResponseUtil;
 import com.example.KLTN.Config.config.JwtUtill;
 import com.example.KLTN.Config.Email.EmaiCl;
 import com.example.KLTN.Config.Email.RandomOTP;
+import com.example.KLTN.Service.CustomOAuth2UserService;
 import com.example.KLTN.dto.*;
 import com.example.KLTN.Entity.RoleEntity;
 import com.example.KLTN.Entity.UsersEntity;
@@ -18,7 +19,9 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
@@ -35,7 +38,7 @@ public class authController {
     private final AuthenticationManager authenticationManager;
     private final HttpResponseUtil responseUtil;
     private final WallettService wallettService;
-
+    private final HttpResponseUtil  httpResponseUtil;
 
 
     // ===================== REGISTER =====================
@@ -167,5 +170,13 @@ public class authController {
         } catch (Exception e) {
             return responseUtil.error("Lỗi khi đăng nhập", e);
         }
+    }
+    //login auth2 trả về kết quả
+    @GetMapping("/success")
+    public ResponseEntity<Apireponsi<String>> getUserProfile(@AuthenticationPrincipal OAuth2User user) {
+
+        String token = CustomOAuth2UserService.latestJwtToken;
+
+        return httpResponseUtil.ok("login autho2 sucsess",token);
     }
 }
