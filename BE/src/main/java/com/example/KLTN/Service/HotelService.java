@@ -1,17 +1,112 @@
 package com.example.KLTN.Service;
 
+import com.example.KLTN.Config.HTTPstatus.HttpResponseUtil;
 import com.example.KLTN.Entity.HotelEntity;
+import com.example.KLTN.Entity.RoomsEntity;
+import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Repository.HotelRepository;
 import com.example.KLTN.Service.Impl.HotelServiceImpl;
+import com.example.KLTN.dto.Apireponsi;
+import com.example.KLTN.dto.hotelDto;
+import com.example.KLTN.dto.roomsDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class HotelService implements HotelServiceImpl
 {
+
+    private final HotelService hotelService;
+    private final RoomsService roomsService;
+    private final UserService userService;
+    private final HttpResponseUtil httpResponseUtil;
+    private final Image image;
+    @Override
+    public ResponseEntity<Apireponsi<HotelEntity>> createHotel(hotelDto dto, MultipartFile hotelImage, List<MultipartFile> roomsImage) {
+        try {
+            // 1. Kiểm tra xác thực
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+
+            String username = auth.getName();
+            UsersEntity owner = userService.FindByUsername(username);
+
+            // 2. Kiểm tra hình ảnh khách sạn
+            if (hotelImage == null) {
+                return httpResponseUtil.badRequest("Hotel image is null");
+            }
+
+            // 3. Tạo HotelEntity
+            HotelEntity hotel = new HotelEntity();
+            hotel.setAddress(dto.getAddress());
+            hotel.setName(dto.getName());
+            hotel.setDescription(dto.getDescription());
+            hotel.setOwner(owner);
+            hotel.setImage(image.saveFile(hotelImage));
+            hotel.setPhone(dto.getPhone());
+            hotel.setStatus(HotelEntity.Status.pending);
+
+            // 4. Xử lý danh sách phòng
+            List<RoomsEntity> roomEntities = new ArrayList<>();
+
+            if (dto.getRooms() == null || dto.getRooms().isEmpty()) {
+                return httpResponseUtil.badRequest("Danh sách phòng không được để trống");
+            }
+
+            if (dto.getRooms().size() != roomsImage.size()) {
+                return httpResponseUtil.badRequest("Số lượng phòng và ảnh phòng không khớp");
+            }
+
+            for (int i = 0; i < dto.getRooms().size(); i++) {
+                roomsDto roomDto = dto.getRooms().get(i);
+                MultipartFile roomImage = roomsImage.get(i);
+
+                RoomsEntity roomEntity = new RoomsEntity();
+                roomEntity.setHotel(hotel);
+                roomEntity.setType(RoomsEntity.RoomType.STANDARD);
+                roomEntity.setPrice(roomDto.getPrice());
+                roomEntity.setStatus(RoomsEntity.Status.AVAILABLE);
+                roomEntity.setNumber(roomDto.getNumber());
+                roomEntity.setDiscountPercent(0.0);
+                roomEntity.setImage(image.saveFile(roomImage));
+                roomEntity.setCheckInDate(null);
+                roomEntity.setCheckOutDate(null);
+
+                roomEntities.add(roomEntity);
+            }
+
+            hotel.setRooms(roomEntities);
+
+            // 5. Lưu Hotel + Rooms
+            hotelService.saveHotel(hotel);
+
+            return httpResponseUtil.created("Tạo khách sạn thành công", hotel);
+
+        } catch (Exception e) {
+            return httpResponseUtil.error("Lỗi khi tạo khách sạn", e);
+        }
+    }
+
+    @Override
+    public ResponseEntity<Apireponsi<List<HotelEntity>>> findAllHotel() {
+        try {
+            List<HotelEntity> hotels = hotelService.findAllHotels();
+            return httpResponseUtil.ok("Danh sách khách sạn", hotels);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Lỗi khi lấy danh sách khách sạn", e);
+        }
+    }
+    // ====================================================================================//
     private final HotelRepository hotelRepository;
     @Override
     public void saveHotel(HotelEntity hotel) {

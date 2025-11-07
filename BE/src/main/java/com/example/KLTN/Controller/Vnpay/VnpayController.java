@@ -34,25 +34,19 @@ public class VnpayController {
                                            @RequestParam long amount,
                                            @RequestParam String orderInfo,
                                            @RequestParam String orderType) {
-
-        String url = vnPayService.createRedirectUrl(request, amount, orderInfo, orderType);
-        return ResponseEntity.ok(Map.of("url", url));
+        return ResponseEntity.ok(Map.of("url", vnPayService.createRedirectUrl(request, amount, orderInfo, orderType)));
     }
 
     @GetMapping("/return")
     public ResponseEntity<?> vnpayReturn(HttpServletRequest request) {
-        // Chuyển Map<String,String[]> sang Map<String,String>
         Map<String, String> paramMap = new HashMap<>();
         request.getParameterMap().forEach((k, v) -> paramMap.put(k, v[0]));
         String responseCode = paramMap.get("vnp_ResponseCode");
-
         if (!paramMap.containsKey("vnp_SecureHash")) {
             transactitonsService.failedPayment(request);
             return ResponseEntity.ok("User canceled payment.");
         }
-
         boolean valid = vnPayService.validateReturn(paramMap);
-
         if (valid && "00".equals(responseCode)) {
             transactitonsService.SucseccPayment(request);
             return ResponseEntity.ok("Thanh toán thành công!");
