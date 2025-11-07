@@ -6,6 +6,8 @@ import java.util.List;
 
 public interface RoomsServiceImpl {
     void saveRooms(RoomsEntity rooms);
-List<RoomsEntity> findAllRooms();
-RoomsEntity findRoomById(Long id);
+
+    List<RoomsEntity> findAllRooms();
+
+    RoomsEntity findRoomById(Long id);
 }

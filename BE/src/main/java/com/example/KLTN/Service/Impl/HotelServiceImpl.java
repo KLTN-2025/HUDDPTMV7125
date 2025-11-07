@@ -1,6 +1,10 @@
 package com.example.KLTN.Service.Impl;
 
 import com.example.KLTN.Entity.HotelEntity;
+import com.example.KLTN.dto.Apireponsi;
+import com.example.KLTN.dto.hotelDto;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -9,4 +13,8 @@ public interface HotelServiceImpl {
     void deleteHotel(Long id);
     List<HotelEntity> findAllHotels();
     HotelEntity findHotelById(Long id);
+    ResponseEntity<Apireponsi<HotelEntity>> createHotel(hotelDto dto,
+                                                        MultipartFile hotelImage,
+                                                        List<MultipartFile> roomsImage);
+    ResponseEntity<Apireponsi<List<HotelEntity>>> findAllHotel();
 }

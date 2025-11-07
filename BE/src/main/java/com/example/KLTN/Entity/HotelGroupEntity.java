@@ -12,9 +12,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class HotelGroupEntity {
     public enum Status {
-        pending,
-        success
-    }
+        pending,success}
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
