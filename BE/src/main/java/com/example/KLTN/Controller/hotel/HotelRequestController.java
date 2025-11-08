@@ -7,6 +7,7 @@ import com.example.KLTN.Entity.RoomsEntity;
 import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Service.*;
 import com.example.KLTN.dto.Apireponsi;
+import com.example.KLTN.dto.updateHotelDto;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -26,12 +27,10 @@ import java.util.List;
 @RequestMapping("/api/hotel")
 @RequiredArgsConstructor
 public class HotelRequestController {
-    private final HotelGroupService hotelGroupService;
+
     private final HotelService hotelService;
     private final RoomsService roomsService;
-    private final HttpResponseUtil httpResponseUtil;
-    private final UserService userService;
-    private final Image image;
+
     @PostMapping(value = "/create")
     public ResponseEntity<Apireponsi<HotelEntity>> createHotel(@RequestPart("hotel") hotelDto dto,
                                                                @RequestPart("hotelImage") MultipartFile hotelImage,
@@ -39,9 +38,21 @@ public class HotelRequestController {
     ) {
         return hotelService.createHotel(dto, hotelImage, roomsImage);
     }
+
     @GetMapping("/list")
     public ResponseEntity<Apireponsi<List<HotelEntity>>> findAllHotel() {
         return hotelService.findAllHotel();
+    }
+    @PutMapping("/update/{id}")
+    public ResponseEntity<Apireponsi<HotelEntity>> update(@PathVariable Long id,
+                                                          @RequestPart("hotel") updateHotelDto dto,
+                                                          @RequestPart("hotelImage") MultipartFile hotelImage) {
+        return hotelService.Updatehotel(id, dto, hotelImage);
+    }
+    @PutMapping("/setAll_discount_percent/{id}")
+    public ResponseEntity<Apireponsi<HotelEntity>> setDiscount_percent(@PathVariable("id") Long id,
+                                                                      @RequestParam("discount_percent") double discount_percent) {
+        return roomsService.updateAlldiscount_percent(id, discount_percent);
     }
 }
 

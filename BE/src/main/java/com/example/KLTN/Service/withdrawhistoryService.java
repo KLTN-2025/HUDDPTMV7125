@@ -3,6 +3,7 @@ package com.example.KLTN.Service;
 
 import com.example.KLTN.Config.HTTPstatus.HttpResponseUtil;
 import com.example.KLTN.Entity.UsersEntity;
+import com.example.KLTN.Entity.WalletTransactionEntity;
 import com.example.KLTN.Entity.WalletsEntity;
 import com.example.KLTN.Entity.withDrawHistoryEntity;
 import com.example.KLTN.Repository.withdrawhistoryRepository;
@@ -25,6 +26,8 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
     private final UserService userService;
     private final WallettService wallettService;
     private final HttpResponseUtil httpResponseUtil;
+    private final WalletTransactionService walletTransactionService;
+
     @Override
     public ResponseEntity<Apireponsi<withDrawHistoryEntity>> createWithdraw(withDrawDTO dto) {
         try {
@@ -61,6 +64,9 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
     @Override
     public ResponseEntity<Apireponsi<withDrawHistoryEntity>> approveWithdraw(Long id) {
         try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String username = authentication.getName();
+            UsersEntity user = userService.FindByUsername(username);
             withDrawHistoryEntity withdraw = findByid(id);
             if (withdraw == null) {
                 return httpResponseUtil.badRequest("Không tồn tại WithdrawHistory");
@@ -80,7 +86,7 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
             withdraw.setStatus(withDrawHistoryEntity.Status.resolved);
             withdraw.setUpdate_AT(LocalDateTime.now());
             saveWithdraw(withdraw);
-
+            walletTransactionService.CreateWalletTransactionUUser(user, withdraw.getAmount(), "Rút Tiền", WalletTransactionEntity.TransactionType.PAYMENT);
             return httpResponseUtil.ok("Đã phê duyệt rút tiền");
         } catch (Exception e) {
             return httpResponseUtil.error("Approve Error", e);

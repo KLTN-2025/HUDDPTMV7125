@@ -1,5 +1,8 @@
 package com.example.KLTN.Entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -14,6 +17,7 @@ import java.time.LocalDate;
 @NoArgsConstructor
 @Table(name = "Rooms")
 @Data
+@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class RoomsEntity {
     public enum RoomType {
         STANDARD,
@@ -24,29 +28,28 @@ public class RoomsEntity {
         FAMILY,
         STUDIO
     }
-
     public enum Status {
         AVAILABLE,  // còn phòng
-        BOOKED      // đã đặt
-    }
-    // Ngày kết thúc booking
+        BOOKED,// đã đặt
+        MAINTENANCE // bảo trì
+    }// Ngày kết thúc booking
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Min(value = 0, message = "Khuyến mãi không được âm")
-    @Max(value = 10, message = "Khuyến mãi không được vượt quá 10%")
-    private Double discountPercent;
     private Long id;
+    @Min(value = 0, message = "Khuyến mãi không được âm")
+    @Max(value = 1, message = "Khuyến mãi không được vượt quá 1")
+    private Double discountPercent;
     private String Number;
     @Enumerated(EnumType.STRING)
     private RoomType type;
     @Enumerated(EnumType.STRING)
     private Status status;
     private Double price;
+    private Integer capacity;
     private String image;
-    private LocalDate checkInDate;
-    private LocalDate checkOutDate;
     @ManyToOne
+    @JsonBackReference
     @JoinColumn(name = "hotel_id", nullable = false)
     private HotelEntity hotel;
 }

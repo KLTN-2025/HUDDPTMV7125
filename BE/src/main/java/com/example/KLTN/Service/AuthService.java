@@ -56,7 +56,7 @@ public class AuthService implements AuthServiceImpl {
             user.setPhone(dto.getPhone());
             user.setRole(role);
             user.setVerified(false);
-            userService.SaveUser(user);
+            this.userService.SaveUser(user);
 
             WalletsEntity wallet = new WalletsEntity();
             wallet.setUser(user);

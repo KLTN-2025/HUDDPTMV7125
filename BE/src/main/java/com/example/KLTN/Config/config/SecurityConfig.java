@@ -35,11 +35,17 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/withdraw/reject/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/hotel/create").hasRole("OWNER")
                         .requestMatchers(HttpMethod.GET, "/api/hotel/list").permitAll()
+                        .requestMatchers(HttpMethod.PUT, "/api/hotel/update/**").hasAnyRole("OWNER", "ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/rooms/**").hasRole("OWNER")
+                        .requestMatchers(HttpMethod.PUT, "/api/hotel/setAll_discount_percent/**").hasRole("OWNER")
+                        .requestMatchers(HttpMethod.POST, "/api/booking/create/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.PUT, "/api/booking/pay/**").hasRole("USER")
                         // All others
                         .anyRequest().authenticated()
                 )
                 // OAuth2 login
                 .oauth2Login(oauth -> oauth
+                        .defaultSuccessUrl("/home", true)
                         .defaultSuccessUrl("/api/auth/success", true)
                         .failureUrl("/api/auth/login?error=true")
                 )
@@ -47,6 +53,7 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
