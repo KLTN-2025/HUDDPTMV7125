@@ -1,15 +1,13 @@
 package com.example.KLTN.Service;
 
 import com.example.KLTN.Entity.RoleEntity;
-import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Repository.RolesRepository;
-import com.example.KLTN.Service.Impl.RoleServiceImlp;
-import lombok.RequiredArgsConstructor;
+import com.example.KLTN.Service.Impl.RoleServiceImpl;
 import org.springframework.stereotype.Service;
 
 
 @Service
-public class RoleService implements RoleServiceImlp {
+public class RoleService implements RoleServiceImpl {
 
 
     public RoleService(RolesRepository rolesRepository) {

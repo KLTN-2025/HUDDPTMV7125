@@ -11,7 +11,6 @@ import com.example.KLTN.Service.Impl.withdrawhistoryServiceImpl;
 import com.example.KLTN.dto.Apireponsi;
 import com.example.KLTN.dto.withDrawDTO;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -24,7 +23,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class withdrawhistoryService implements withdrawhistoryServiceImpl {
     private final UserService userService;
-    private final WallettService wallettService;
+    private final WalletService wallettService;
     private final HttpResponseUtil httpResponseUtil;
     private final WalletTransactionService walletTransactionService;
 

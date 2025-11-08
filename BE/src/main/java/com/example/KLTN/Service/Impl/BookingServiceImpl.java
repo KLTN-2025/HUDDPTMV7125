@@ -13,5 +13,5 @@ public interface BookingServiceImpl {
 
     ResponseEntity<Apireponsi<BookingEntity>> createBooking(Long id, BookingCreateDTO dto);
 
-    ResponseEntity<Apireponsi<String>> payBooking(Long id);
+    ResponseEntity<Apireponsi<BookingEntity>> payBooking(Long id);
 }
