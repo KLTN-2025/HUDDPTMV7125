@@ -14,14 +14,13 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
 
 @RequiredArgsConstructor
 @Service
 public class TransactitonsService implements TransactitonsServiceImpl {
     private final UserService userService;
     private final HttpResponseUtil responseUtil;
-    private final WallettService walletService;
+    private final WalletService walletService;
     private final TransactitonsRepository transactitonsRepository;
     private final WalletTransactionService walletTransactionService;
 

@@ -19,7 +19,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import  com.example.KLTN.Config.Email.EmaiCl;
+import com.example.KLTN.Config.Email.EmailCl;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -30,10 +30,10 @@ public class AuthService implements AuthServiceImpl {
     private final UserService userService;
     private final RoleService roleService;
     private final JwtUtill jwtUtil;
-    private final EmaiCl emailUtil;
+    private final EmailCl emailUtil;
     private final AuthenticationManager authenticationManager;
     private final HttpResponseUtil responseUtil;
-    private final WallettService walletService;
+    private final WalletService walletService;
 
     // ===================== REGISTER USER =====================
     public ResponseEntity<Apireponsi<UsersEntity>> registerUser(RegisterUserDto dto, String roleName) {

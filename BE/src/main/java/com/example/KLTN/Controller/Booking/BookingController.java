@@ -22,7 +22,7 @@ public class BookingController {
     }
 
     @PutMapping("/pay/{id}")
-    public ResponseEntity<Apireponsi<String>> payBooking(@PathVariable Long id) {
+    public ResponseEntity<Apireponsi<BookingEntity>> payBooking(@PathVariable Long id) {
         return bookingService.payBooking(id);
     }
 }

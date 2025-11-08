@@ -6,10 +6,10 @@ import org.springframework.stereotype.Component;
 
 
 @Component
-public class EmaiCl {
+public class EmailCl {
   private final JavaMailSender mailSender;
 
-    EmaiCl(JavaMailSender mailSender) {
+    EmailCl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
 

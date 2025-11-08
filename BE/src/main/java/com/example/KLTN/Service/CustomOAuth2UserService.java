@@ -25,7 +25,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
     private final JwtUtill jwtUtil;
     // ✅ biến static lưu tạm token
     public static String latestJwtToken;
-    private final WallettService wallettService;
+    private final WalletService wallettService;
 
     @Override
     public OAuth2User loadUser(OAuth2UserRequest userRequest) {

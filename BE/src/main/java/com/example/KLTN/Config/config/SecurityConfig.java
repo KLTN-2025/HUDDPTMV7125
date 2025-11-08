@@ -40,6 +40,11 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/hotel/setAll_discount_percent/**").hasRole("OWNER")
                         .requestMatchers(HttpMethod.POST, "/api/booking/create/**").hasRole("USER")
                         .requestMatchers(HttpMethod.PUT, "/api/booking/pay/**").hasRole("USER")
+                        .requestMatchers(HttpMethod.POST,"/api/admin/percent/create/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,"/api/admin/percent/update/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT,"/api/admin/transaction/setTransaction/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET,"/api/admin/transaction/getAll").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET,"/api/admin/transaction/get/**").hasAnyRole("ADMIN", "OWNER")
                         // All others
                         .anyRequest().authenticated()
                 )

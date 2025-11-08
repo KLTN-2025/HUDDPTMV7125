@@ -6,6 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface WallersRepository extends JpaRepository<WalletsEntity, Long> {
+public interface WalletsRepository extends JpaRepository<WalletsEntity, Long> {
     WalletsEntity findByUser(UsersEntity usersEntity);
 }
