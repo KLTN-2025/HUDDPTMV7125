@@ -2,10 +2,10 @@ package com.example.KLTN.Service.Impl;
 
 import com.example.KLTN.Entity.HotelEntity;
 import com.example.KLTN.dto.Apireponsi;
-import com.example.KLTN.dto.hotelDto;
+import com.example.KLTN.dto.updateHotelDto;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.multipart.MultipartFile;
-
+import com.example.KLTN.dto.hotelDto;
 import java.util.List;
 
 public interface HotelServiceImpl {
@@ -17,4 +17,8 @@ public interface HotelServiceImpl {
                                                         MultipartFile hotelImage,
                                                         List<MultipartFile> roomsImage);
     ResponseEntity<Apireponsi<List<HotelEntity>>> findAllHotel();
+    ResponseEntity<Apireponsi<HotelEntity>> Updatehotel(Long id,updateHotelDto dto,
+                                                        MultipartFile hotelImage);
+
 }
+

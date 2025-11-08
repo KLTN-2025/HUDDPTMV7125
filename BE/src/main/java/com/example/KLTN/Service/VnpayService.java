@@ -30,11 +30,13 @@ public class VnpayService {
     @Autowired
 private UserService userService;
     public String createRedirectUrl(HttpServletRequest request, long amount, String orderInfo, String orderType) {
-
                 Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String name = authentication.getName();
         UsersEntity user =userService.FindByUsername(name);
         Long userId = user.getId();
+        if(userId==null){
+            return "null userId";
+        }
         String orderInfoWithUser = orderInfo + "|userId:" + userId;
         Map<String, String> vnpParams = new HashMap<>();
         vnpParams.put("vnp_Version", version);
@@ -47,10 +49,8 @@ private UserService userService;
         vnpParams.put("vnp_OrderType", orderType);
         vnpParams.put("vnp_Locale", locale);
         vnpParams.put("vnp_ReturnUrl", returnUrl);
-
         vnpParams.put("vnp_CreateDate", new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()));
         vnpParams.put("vnp_IpAddr", request.getRemoteAddr());
-
         List<String> fieldNames = new ArrayList<>(vnpParams.keySet());
         Collections.sort(fieldNames);
 

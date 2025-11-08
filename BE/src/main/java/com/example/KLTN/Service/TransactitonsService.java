@@ -3,33 +3,28 @@ package com.example.KLTN.Service;
 import com.example.KLTN.Config.HTTPstatus.HttpResponseUtil;
 import com.example.KLTN.Entity.TransactitonsEntity;
 import com.example.KLTN.Entity.UsersEntity;
+import com.example.KLTN.Entity.WalletTransactionEntity;
 import com.example.KLTN.Entity.WalletsEntity;
 import com.example.KLTN.Repository.TransactitonsRepository;
 import com.example.KLTN.Service.Impl.TransactitonsServiceImpl;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 
+@RequiredArgsConstructor
 @Service
 public class TransactitonsService implements TransactitonsServiceImpl {
     private final UserService userService;
     private final HttpResponseUtil responseUtil;
     private final WallettService walletService;
     private final TransactitonsRepository transactitonsRepository;
+    private final WalletTransactionService walletTransactionService;
 
-    public TransactitonsService(UserService userService,
-                                HttpResponseUtil responseUtil,
-                                WallettService walletService,
-                                TransactitonsRepository transactitonsRepository) {
-        this.userService = userService;
-        this.responseUtil = responseUtil;
-        this.walletService = walletService;
-        this.transactitonsRepository = transactitonsRepository;
-    }
 
     // ================== Callback Failed ==================
     @Override
@@ -53,14 +48,14 @@ public class TransactitonsService implements TransactitonsServiceImpl {
         System.out.println("vnp_Amount = " + amountStr);
         System.out.println("==================================");
         UsersEntity users = userService.findById(id);
-WalletsEntity wallets =walletService.GetWallet(users);
+        WalletsEntity wallets = walletService.GetWallet(users);
         if (amountStr == null || vnpTxnRef == null) {
             System.err.println("⚠ VNPay callback thất bại không đủ dữ liệu -> Bỏ qua lưu DB");
             return;
         }
 
         BigDecimal amount = new BigDecimal(amountStr).divide(BigDecimal.valueOf(100));
-TransactitonsEntity transactitons = new TransactitonsEntity();
+        TransactitonsEntity transactitons = new TransactitonsEntity();
 
         if (wallets == null) {
             System.err.println("⚠ Không tìm thấy giao dịch -> callback có thể đến từ VNPay server");
@@ -83,6 +78,7 @@ TransactitonsEntity transactitons = new TransactitonsEntity();
         String vnpTxnRef = request.getParameter("vnp_TxnRef");
         String orderInfo = request.getParameter("vnp_OrderInfo");
         String amountStr = request.getParameter("vnp_Amount");
+        double muoney = Double.parseDouble(amountStr.toString());
         Long id = null;
         if (orderInfo.contains("|userId:")) {
             try {
@@ -93,7 +89,7 @@ TransactitonsEntity transactitons = new TransactitonsEntity();
             }
         }
         UsersEntity users = userService.findById(id);
-        WalletsEntity wallets =walletService.GetWallet(users);
+        WalletsEntity wallets = walletService.GetWallet(users);
         System.out.println("===== VNPAY CALLBACK (SUCCESS) =====");
         System.out.println("vnp_TxnRef = " + vnpTxnRef);
         System.out.println("vnp_OrderInfo = " + orderInfo);
@@ -106,12 +102,11 @@ TransactitonsEntity transactitons = new TransactitonsEntity();
         }
 
         BigDecimal amount = new BigDecimal(amountStr).divide(BigDecimal.valueOf(100));
-     TransactitonsEntity transactitons = new TransactitonsEntity();
+        TransactitonsEntity transactitons = new TransactitonsEntity();
 
 
         wallets.setBalance(wallets.getBalance().add(amount));
         walletService.SaveWallet(wallets);
-
         transactitons.setStatus(TransactitonsEntity.Status.success);
         transactitons.setAmount(amount);
         transactitons.setVnpOrderInfo(orderInfo);
@@ -120,9 +115,9 @@ TransactitonsEntity transactitons = new TransactitonsEntity();
         transactitons.setWallet(wallets);
         transactitons.setType(TransactitonsEntity.statustype.deposit);
         transactitonsRepository.save(transactitons);
-
-
+        walletTransactionService.CreateWalletTransactionUUser(users, muoney, "Nạp tiền từ cổng vnpay", WalletTransactionEntity.TransactionType.DEPOSIT);
     }
+
     @Override
     public void SaveTransactions(TransactitonsEntity transactitonsEntity) {
         transactitonsRepository.save(transactitonsEntity);

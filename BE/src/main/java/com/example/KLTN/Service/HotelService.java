@@ -15,20 +15,19 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import com.example.KLTN.dto.updateHotelDto;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class HotelService implements HotelServiceImpl
-{
+public class HotelService implements HotelServiceImpl {
 
-    private final HotelService hotelService;
-    private final RoomsService roomsService;
     private final UserService userService;
     private final HttpResponseUtil httpResponseUtil;
     private final Image image;
+
     @Override
     public ResponseEntity<Apireponsi<HotelEntity>> createHotel(hotelDto dto, MultipartFile hotelImage, List<MultipartFile> roomsImage) {
         try {
@@ -45,7 +44,6 @@ public class HotelService implements HotelServiceImpl
             if (hotelImage == null) {
                 return httpResponseUtil.badRequest("Hotel image is null");
             }
-
             // 3. Tạo HotelEntity
             HotelEntity hotel = new HotelEntity();
             hotel.setAddress(dto.getAddress());
@@ -60,17 +58,16 @@ public class HotelService implements HotelServiceImpl
             List<RoomsEntity> roomEntities = new ArrayList<>();
 
             if (dto.getRooms() == null || dto.getRooms().isEmpty()) {
-                return httpResponseUtil.badRequest("Danh sách phòng không được để trống");
+                return httpResponseUtil.notFound("Danh sách phòng không được để trống");
             }
 
             if (dto.getRooms().size() != roomsImage.size()) {
                 return httpResponseUtil.badRequest("Số lượng phòng và ảnh phòng không khớp");
             }
-
+            this.saveHotel(hotel);
             for (int i = 0; i < dto.getRooms().size(); i++) {
                 roomsDto roomDto = dto.getRooms().get(i);
                 MultipartFile roomImage = roomsImage.get(i);
-
                 RoomsEntity roomEntity = new RoomsEntity();
                 roomEntity.setHotel(hotel);
                 roomEntity.setType(RoomsEntity.RoomType.STANDARD);
@@ -79,16 +76,12 @@ public class HotelService implements HotelServiceImpl
                 roomEntity.setNumber(roomDto.getNumber());
                 roomEntity.setDiscountPercent(0.0);
                 roomEntity.setImage(image.saveFile(roomImage));
-                roomEntity.setCheckInDate(null);
-                roomEntity.setCheckOutDate(null);
-
+                roomEntity.setCapacity(0);
                 roomEntities.add(roomEntity);
             }
-
             hotel.setRooms(roomEntities);
-
             // 5. Lưu Hotel + Rooms
-            hotelService.saveHotel(hotel);
+            this.saveHotel(hotel);
 
             return httpResponseUtil.created("Tạo khách sạn thành công", hotel);
 
@@ -100,14 +93,46 @@ public class HotelService implements HotelServiceImpl
     @Override
     public ResponseEntity<Apireponsi<List<HotelEntity>>> findAllHotel() {
         try {
-            List<HotelEntity> hotels = hotelService.findAllHotels();
+            List<HotelEntity> hotels = this.findAllHotels();
             return httpResponseUtil.ok("Danh sách khách sạn", hotels);
         } catch (Exception e) {
             return httpResponseUtil.error("Lỗi khi lấy danh sách khách sạn", e);
         }
     }
+
+    @Override
+    public ResponseEntity<Apireponsi<HotelEntity>> Updatehotel(Long id, updateHotelDto dto, MultipartFile hotelImage) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            String name = auth.getName();
+            UsersEntity owner = userService.FindByUsername(name);
+            if (owner == null) {
+                return httpResponseUtil.notFound("User not authenticated");
+            }
+            HotelEntity hotel = this.findHotelById(id);
+            if (hotel == null) {
+                return httpResponseUtil.notFound("null hotel");
+            }
+            if (hotelImage == null) {
+                return httpResponseUtil.notFound("hotel image is null");
+            }
+
+            String image1 = image.updateFile(hotel.getImage(), hotelImage);
+            hotel.setName(dto.getName());
+            hotel.setDescription(dto.getDescription());
+            hotel.setAddress(dto.getAddress());
+            hotel.setPhone(dto.getPhone());
+            hotel.setImage(image1);
+            this.saveHotel(hotel);
+            return httpResponseUtil.ok("Update Hotel", hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Lỗi update ", e);
+        }
+    }
+
     // ====================================================================================//
     private final HotelRepository hotelRepository;
+
     @Override
     public void saveHotel(HotelEntity hotel) {
         hotelRepository.save(hotel);
