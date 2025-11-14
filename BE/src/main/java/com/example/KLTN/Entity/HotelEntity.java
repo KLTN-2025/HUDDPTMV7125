@@ -17,11 +17,12 @@ import java.util.List;
 @Table(name = "hotel")
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
 public class HotelEntity {
-    public enum Status{
+    public enum Status {
         pending,
         success,
         fail
     }
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -32,6 +33,8 @@ public class HotelEntity {
     private String phone;
     private String description;
     private String image;
+    private int rating;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "owner_user")
     @JsonBackReference   // 👈 Đánh dấu đầu con — không serialize lại user

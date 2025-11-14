@@ -116,6 +116,9 @@ public class HotelService implements HotelServiceImpl {
             if (hotelImage == null) {
                 return httpResponseUtil.notFound("hotel image is null");
             }
+            if (hotel.getStatus().equals(HotelEntity.Status.pending)) {
+                return httpResponseUtil.notFound("Hotel Chưa được phép kinh doanh");
+            }
 
             String image1 = image.updateFile(hotel.getImage(), hotelImage);
             hotel.setName(dto.getName());
@@ -128,9 +131,8 @@ public class HotelService implements HotelServiceImpl {
         } catch (Exception e) {
             return httpResponseUtil.error("Lỗi update ", e);
         }
-    }
+    }// ====================================================================================//
 
-    // ====================================================================================//
     private final HotelRepository hotelRepository;
 
     @Override
@@ -145,11 +147,23 @@ public class HotelService implements HotelServiceImpl {
 
     @Override
     public List<HotelEntity> findAllHotels() {
-        return hotelRepository.findAll();
+        return hotelRepository.findAllHotelsNotPending(HotelEntity.Status.pending);
+    }
+
+    public ResponseEntity<Apireponsi<HotelEntity>> getHotelById(Long id) {
+        try {
+            HotelEntity hotel = this.findHotelById(id);
+            if (hotel == null) {
+                return httpResponseUtil.notFound("Hotel not found");
+            }
+            return httpResponseUtil.ok("Hotel", hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Erorr", e);
+        }
     }
 
     @Override
     public HotelEntity findHotelById(Long id) {
-        return hotelRepository.findById(id).orElse(null);
+        return hotelRepository.findByIdNotPending(id,HotelEntity.Status.pending);
     }
 }
