@@ -46,6 +46,8 @@ public class RoomsService implements RoomsServiceImpl {
             HotelEntity hotelEntity = hotelService.findHotelById(id);
             if (hotelEntity == null) {
                 return httpResponseUtil.notFound("hotelEntity is null");
+            } if (hotelEntity.getStatus().equals(HotelEntity.Status.pending)) {
+                return httpResponseUtil.notFound("Hotel Chưa được phép kinh doanh");
             }
             if (hotelEntity.getRooms() == null || hotelEntity.getRooms().isEmpty()) {
                 return httpResponseUtil.notFound("Khách sạn này chưa có phòng nào");

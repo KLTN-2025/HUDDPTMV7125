@@ -136,6 +136,9 @@ public class BookingService implements BookingServiceImpl {
             if (hotel == null) {
                 return httpResponseUtil.notFound("Hotel not found");
             }
+            if (hotel.getStatus().equals(HotelEntity.Status.pending)) {
+                return httpResponseUtil.notFound("Hotel Chưa được phép kinh doanh");
+            }
             long days = ChronoUnit.DAYS.between(dto.getCheckInDate(), dto.getCheckOutDate());
             if (days <= 0) {
                 days = 1;
