@@ -37,9 +37,7 @@ setup-java17.sh
 javac-wrapper.sh
 README_FIX.md
 README_SUCCESS.md
-pom.xml
 .envrc
 .env
-
 # Application properties (contains sensitive data)
 src/main/resources/application.properties
