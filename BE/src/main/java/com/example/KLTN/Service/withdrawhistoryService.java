@@ -9,8 +9,13 @@ import com.example.KLTN.Entity.withDrawHistoryEntity;
 import com.example.KLTN.Repository.withdrawhistoryRepository;
 import com.example.KLTN.Service.Impl.withdrawhistoryServiceImpl;
 import com.example.KLTN.dto.Apireponsi;
+import com.example.KLTN.dto.PageResponse;
 import com.example.KLTN.dto.withDrawDTO;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -44,6 +49,13 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
                 return httpResponseUtil.badRequest("Số tiền không đủ");
             }
 
+            // Trừ tiền ngay khi tạo yêu cầu rút tiền
+            wallet.setBalance(wallet.getBalance().subtract(amount));
+            wallettService.SaveWallet(wallet);
+            
+            // Tạo transaction record
+            walletTransactionService.CreateWalletTransactionUUser(user, wallet.getBalance().doubleValue(), "Yêu cầu rút tiền (Chờ duyệt)", WalletTransactionEntity.TransactionType.PAYMENT);
+
             withDrawHistoryEntity withdraw = new withDrawHistoryEntity();
             withdraw.setAmount(dto.getAmount());
             withdraw.setCreate_AT(LocalDateTime.now());
@@ -55,7 +67,7 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
             withdraw.setStatus(withDrawHistoryEntity.Status.pending);
 
             saveWithdraw(withdraw);
-            return httpResponseUtil.created("Tạo mới thành công giao dịch", withdraw);
+            return httpResponseUtil.created("Tạo yêu cầu rút tiền thành công. Tiền đã được tạm giữ chờ duyệt.", withdraw);
         } catch (Exception e) {
             return httpResponseUtil.error("Create Error", e);
         }
@@ -63,9 +75,6 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
     @Override
     public ResponseEntity<Apireponsi<withDrawHistoryEntity>> approveWithdraw(Long id) {
         try {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            String username = authentication.getName();
-            UsersEntity user = userService.FindByUsername(username);
             withDrawHistoryEntity withdraw = findByid(id);
             if (withdraw == null) {
                 return httpResponseUtil.badRequest("Không tồn tại WithdrawHistory");
@@ -75,17 +84,14 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
             }
 
             WalletsEntity wallet = withdraw.getWalletsEntity();
-            BigDecimal amount = BigDecimal.valueOf(withdraw.getAmount());
-
-            if (wallet.getBalance().compareTo(amount) < 0) {
-                return httpResponseUtil.badRequest("Số tiền không đủ để rút");
-            }
-
-            wallet.setBalance(wallet.getBalance().subtract(amount));
+            // Tiền đã được trừ khi tạo request, chỉ cần duyệt
             withdraw.setStatus(withDrawHistoryEntity.Status.resolved);
             withdraw.setUpdate_AT(LocalDateTime.now());
             saveWithdraw(withdraw);
-            walletTransactionService.CreateWalletTransactionUUser(user, withdraw.getAmount(), "Rút Tiền", WalletTransactionEntity.TransactionType.PAYMENT);
+            
+            // Tạo transaction record cho việc duyệt
+            UsersEntity owner = wallet.getUser();
+            walletTransactionService.CreateWalletTransactionUUser(owner, wallet.getBalance().doubleValue(), "Rút Tiền - Đã duyệt", WalletTransactionEntity.TransactionType.PAYMENT);
             return httpResponseUtil.ok("Đã phê duyệt rút tiền");
         } catch (Exception e) {
             return httpResponseUtil.error("Approve Error", e);
@@ -102,11 +108,21 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
                 return httpResponseUtil.badRequest("Giao dịch đã được xử lý");
             }
 
+            // Hoàn lại tiền cho user khi từ chối
+            WalletsEntity wallet = withdraw.getWalletsEntity();
+            BigDecimal amount = BigDecimal.valueOf(withdraw.getAmount());
+            wallet.setBalance(wallet.getBalance().add(amount));
+            wallettService.SaveWallet(wallet);
+            
+            // Tạo transaction record cho việc hoàn tiền
+            UsersEntity owner = wallet.getUser();
+            walletTransactionService.CreateWalletTransactionUUser(owner, wallet.getBalance().doubleValue(), "Hoàn tiền - Yêu cầu rút tiền bị từ chối", WalletTransactionEntity.TransactionType.DEPOSIT);
+
             withdraw.setStatus(withDrawHistoryEntity.Status.refuse);
             withdraw.setUpdate_AT(LocalDateTime.now());
             saveWithdraw(withdraw);
 
-            return httpResponseUtil.ok("Đã từ chối phê duyệt");
+            return httpResponseUtil.ok("Đã từ chối yêu cầu rút tiền. Tiền đã được hoàn lại vào ví.");
         } catch (Exception e) {
             return httpResponseUtil.error("Reject Error", e);
         }
@@ -127,5 +143,127 @@ public class withdrawhistoryService implements withdrawhistoryServiceImpl {
     @Override
     public List<withDrawHistoryEntity> findAllWithdrawHistory() {
         return withdrawRepository.findAll();
+    }
+    
+    // Lấy tất cả withdraws (cho admin)
+    public ResponseEntity<Apireponsi<List<withDrawHistoryEntity>>> getAllWithdraws() {
+        try {
+            List<withDrawHistoryEntity> withdraws = this.findAllWithdrawHistory();
+            return httpResponseUtil.ok("Get all withdraws success", withdraws);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting all withdraws", e);
+        }
+    }
+
+    // Lấy tất cả withdraws với pagination và search (cho admin)
+    public ResponseEntity<Apireponsi<PageResponse<withDrawHistoryEntity>>> getAllWithdrawsPaginated(
+            String search, Integer page, Integer size) {
+        try {
+            // Set defaults
+            int pageNumber = (page != null && page >= 0) ? page : 0;
+            int pageSize = (size != null && size > 0) ? size : 10;
+
+            // Tạo Pageable với sort theo id DESC
+            Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+            // Normalize search string
+            String searchQuery = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+            
+            // Try to parse search as Long for ID search
+            Long searchId = null;
+            if (searchQuery != null) {
+                try {
+                    searchId = Long.parseLong(searchQuery);
+                } catch (NumberFormatException e) {
+                    // Not a number, searchId remains null
+                    searchId = null;
+                }
+            }
+
+            // Query với search
+            Page<withDrawHistoryEntity> withdrawPage = withdrawRepository.findAllWithSearch(searchQuery, searchId, pageable);
+
+            // Convert to PageResponse
+            PageResponse<withDrawHistoryEntity> pageResponse = new PageResponse<>(
+                    withdrawPage.getContent(),
+                    withdrawPage.getTotalPages(),
+                    withdrawPage.getTotalElements(),
+                    withdrawPage.getNumber(),
+                    withdrawPage.getSize(),
+                    withdrawPage.hasNext(),
+                    withdrawPage.hasPrevious()
+            );
+
+            return httpResponseUtil.ok("Lấy danh sách yêu cầu rút tiền thành công", pageResponse);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Lỗi khi lấy danh sách yêu cầu rút tiền", e);
+        }
+    }
+    
+    // Lấy withdraws của user hiện tại
+    public ResponseEntity<Apireponsi<List<withDrawHistoryEntity>>> getMyWithdraws() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+            
+            String username = auth.getName();
+            UsersEntity user = userService.FindByUsername(username);
+            if (user == null) {
+                return httpResponseUtil.notFound("User not found");
+            }
+            
+            WalletsEntity wallet = wallettService.GetWallet(user);
+            if (wallet == null) {
+                return httpResponseUtil.notFound("Wallet not found");
+            }
+            
+            List<withDrawHistoryEntity> withdraws = withdrawRepository.findByWalletsEntityId(wallet.getId());
+            return httpResponseUtil.ok("Get my withdraws success", withdraws);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting my withdraws", e);
+        }
+    }
+    
+    public ResponseEntity<Apireponsi<PageResponse<withDrawHistoryEntity>>> getMyWithdrawsPaginated(int page, int size) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+            
+            String username = auth.getName();
+            UsersEntity user = userService.FindByUsername(username);
+            if (user == null) {
+                return httpResponseUtil.notFound("User not found");
+            }
+            
+            WalletsEntity wallet = wallettService.GetWallet(user);
+            if (wallet == null) {
+                return httpResponseUtil.notFound("Wallet not found");
+            }
+            
+            // Validate và set defaults
+            int validPage = page >= 0 ? page : 0;
+            int validSize = size > 0 ? size : 8;
+            
+            Pageable pageable = PageRequest.of(validPage, validSize);
+            Page<withDrawHistoryEntity> withdrawPage = withdrawRepository.findByWalletsEntityIdOrderByIdDesc(wallet.getId(), pageable);
+            
+            PageResponse<withDrawHistoryEntity> response = new PageResponse<>(
+                withdrawPage.getContent(),
+                withdrawPage.getTotalPages(),
+                withdrawPage.getTotalElements(),
+                withdrawPage.getNumber(),
+                withdrawPage.getSize(),
+                withdrawPage.hasNext(),
+                withdrawPage.hasPrevious()
+            );
+            
+            return httpResponseUtil.ok("Get my withdraws success", response);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting my withdraws", e);
+        }
     }
 }

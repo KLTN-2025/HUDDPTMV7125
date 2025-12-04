@@ -1,8 +1,7 @@
 package com.example.KLTN.Entity;
 
-import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
-import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -14,7 +13,8 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 @Data
-@JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
+@EqualsAndHashCode(exclude = {"wallet", "role"})
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class UsersEntity {
 
     @Id
@@ -28,7 +28,12 @@ public class UsersEntity {
     private String email;
 
     @Column(nullable = false)
+    @Builder.Default
     private boolean verified = false;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private boolean locked = false;
 
     @Column(nullable = false)
     private String password;

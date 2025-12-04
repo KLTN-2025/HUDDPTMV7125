@@ -28,5 +28,17 @@ public interface HotelServiceImpl {
                                                         MultipartFile hotelImage);
 
     ResponseEntity<Apireponsi<HotelEntity>> getHotelById(Long id);
+
+    ResponseEntity<Apireponsi<HotelEntity>> softDeleteHotel(Long id);
+    
+    ResponseEntity<Apireponsi<com.example.KLTN.dto.HotelPageResponse>> findHotelsWithFilters(
+        com.example.KLTN.dto.HotelFilterRequest filterRequest
+    );
+    
+    // Admin methods
+    ResponseEntity<Apireponsi<List<HotelEntity>>> getPendingHotels(String search);
+    ResponseEntity<Apireponsi<HotelEntity>> approveHotel(Long id);
+    ResponseEntity<Apireponsi<HotelEntity>> rejectHotel(Long id);
+    ResponseEntity<Apireponsi<List<HotelEntity>>> getAllHotelsForAdmin(String search);
 }
 

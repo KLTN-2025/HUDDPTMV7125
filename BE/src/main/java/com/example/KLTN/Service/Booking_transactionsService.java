@@ -7,13 +7,25 @@ import com.example.KLTN.Entity.UsersEntity;
 import com.example.KLTN.Repository.Booking_transactionsRepository;
 import com.example.KLTN.Service.Impl.Booking_transactionsServiceImpl;
 import com.example.KLTN.dto.Apireponsi;
+import com.example.KLTN.dto.HotelRevenueDTO;
+import com.example.KLTN.dto.PageResponse;
+import com.example.KLTN.dto.RevenueSummaryDTO;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -80,11 +92,98 @@ public class Booking_transactionsService implements Booking_transactionsServiceI
     @Override
     public ResponseEntity<Apireponsi<List<Booking_transactionsEntity>>> findAllBooking_transactionsById() {
         try {
-            List<Booking_transactionsEntity> list = this.booking_transactionsRepository.findAll();
+            // Sử dụng method với JOIN FETCH để load đầy đủ dữ liệu
+            List<Booking_transactionsEntity> list = this.booking_transactionsRepository.findAllWithDetails();
+            
+            // Tính toán lại Admin_mount và User_mount cho các transaction chưa có
+            double percentAdmin = adminPercentService.findAdminPercentById(Long.parseLong("1")).getAdminPercent();
+            BigDecimal percentAdminBD = BigDecimal.valueOf(percentAdmin);
+            
+            boolean hasUpdate = false;
+            for (Booking_transactionsEntity transaction : list) {
+                // Nếu Admin_mount hoặc User_mount là null, tính toán lại
+                if (transaction.getAdmin_mount() == null || transaction.getUser_mount() == null) {
+                    if (transaction.getAmount() != null) {
+                        BigDecimal amouthAdmin = transaction.getAmount().multiply(percentAdminBD);
+                        BigDecimal amounthOwner = transaction.getAmount().subtract(amouthAdmin);
+                        transaction.setAdmin_mount(amouthAdmin);
+                        transaction.setUser_mount(amounthOwner);
+                        this.booking_transactionsRepository.save(transaction);
+                        hasUpdate = true;
+                    }
+                }
+            }
+            
+            // Nếu có update, load lại để đảm bảo dữ liệu mới nhất
+            if (hasUpdate) {
+                list = this.booking_transactionsRepository.findAllWithDetails();
+            }
+            
             return httpResponseUtil.ok("find all booking transactions successfully", list);
         } catch (Exception e) {
             return httpResponseUtil.error("Error", e);
 
+        }
+    }
+
+    // Lấy tất cả transactions với pagination và search
+    public ResponseEntity<Apireponsi<PageResponse<Booking_transactionsEntity>>> getAllTransactionsPaginated(
+            String search, Integer page, Integer size) {
+        try {
+            // Set defaults
+            int pageNumber = (page != null && page >= 0) ? page : 0;
+            int pageSize = (size != null && size > 0) ? size : 10;
+
+            // Tạo Pageable với sort theo id DESC
+            Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+
+            // Normalize search string
+            String searchQuery = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+            
+            // Try to parse search as Long for ID search
+            Long searchId = null;
+            if (searchQuery != null) {
+                try {
+                    searchId = Long.parseLong(searchQuery);
+                } catch (NumberFormatException e) {
+                    // Not a number, searchId remains null
+                    searchId = null;
+                }
+            }
+
+            // Query với search
+            Page<Booking_transactionsEntity> transactionPage = booking_transactionsRepository.findAllWithDetailsPaginated(searchQuery, searchId, pageable);
+
+            // Tính toán lại Admin_mount và User_mount cho các transaction trong page
+            double percentAdmin = adminPercentService.findAdminPercentById(Long.parseLong("1")).getAdminPercent();
+            BigDecimal percentAdminBD = BigDecimal.valueOf(percentAdmin);
+
+            for (Booking_transactionsEntity transaction : transactionPage.getContent()) {
+                if (transaction.getAdmin_mount() == null || transaction.getUser_mount() == null) {
+                    if (transaction.getAmount() != null) {
+                        BigDecimal amouthAdmin = transaction.getAmount().multiply(percentAdminBD);
+                        BigDecimal amounthOwner = transaction.getAmount().subtract(amouthAdmin);
+                        transaction.setAdmin_mount(amouthAdmin);
+                        transaction.setUser_mount(amounthOwner);
+                        booking_transactionsRepository.save(transaction);
+                    }
+                }
+            }
+
+            // Convert to PageResponse
+            PageResponse<Booking_transactionsEntity> pageResponse = new PageResponse<>(
+                    transactionPage.getContent(),
+                    transactionPage.getTotalPages(),
+                    transactionPage.getTotalElements(),
+                    transactionPage.getNumber(),
+                    transactionPage.getSize(),
+                    transactionPage.hasNext(),
+                    transactionPage.hasPrevious()
+            );
+
+            return httpResponseUtil.ok("Lấy danh sách giao dịch thành công", pageResponse);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Lỗi khi lấy danh sách giao dịch", e);
         }
     }
 
@@ -110,6 +209,160 @@ public class Booking_transactionsService implements Booking_transactionsServiceI
 
         } catch (Exception e) {
             return httpResponseUtil.error("Error", e);
+        }
+    }
+    
+    // Lấy transactions của owner hiện tại
+    public ResponseEntity<Apireponsi<List<Booking_transactionsEntity>>> getMyTransactions() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+            
+            String username = auth.getName();
+            UsersEntity owner = userService.FindByUsername(username);
+            if (owner == null) {
+                return httpResponseUtil.notFound("Owner not found");
+            }
+            
+            List<Booking_transactionsEntity> transactions = booking_transactionsRepository.findByOwnerId(owner.getId());
+            return httpResponseUtil.ok("Get my transactions success", transactions);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting my transactions", e);
+        }
+    }
+    
+    // Lấy doanh thu của owner (theo từng hotel)
+    public ResponseEntity<Apireponsi<RevenueSummaryDTO>> getOwnerRevenue() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+            
+            String username = auth.getName();
+            UsersEntity owner = userService.FindByUsername(username);
+            if (owner == null) {
+                return httpResponseUtil.notFound("Owner not found");
+            }
+            
+            Long ownerId = owner.getId();
+            
+            // Tính tổng doanh thu đã duyệt
+            BigDecimal totalRevenue = booking_transactionsRepository.getTotalRevenueByOwnerId(ownerId);
+            if (totalRevenue == null) totalRevenue = BigDecimal.ZERO;
+            
+            // Tính doanh thu chờ duyệt
+            BigDecimal pendingRevenue = booking_transactionsRepository.getPendingRevenueByOwnerId(ownerId);
+            if (pendingRevenue == null) pendingRevenue = BigDecimal.ZERO;
+            
+            // Tính doanh thu theo từng hotel
+            List<Object[]> approvedRevenues = booking_transactionsRepository.getRevenueByHotels(ownerId);
+            List<Object[]> pendingRevenues = booking_transactionsRepository.getPendingRevenueByHotels(ownerId);
+            
+            // Tạo map để merge dữ liệu
+            Map<Long, HotelRevenueDTO> hotelRevenueMap = new HashMap<>();
+            
+            // Xử lý approved revenues
+            for (Object[] row : approvedRevenues) {
+                Long hotelId = ((Number) row[0]).longValue();
+                String hotelName = (String) row[1];
+                BigDecimal revenue = (BigDecimal) row[2];
+                Integer bookingCount = ((Number) row[3]).intValue();
+                
+                HotelRevenueDTO dto = new HotelRevenueDTO();
+                dto.setHotelId(hotelId);
+                dto.setHotelName(hotelName);
+                dto.setTotalRevenue(revenue);
+                dto.setApprovedBookings(bookingCount);
+                dto.setPendingRevenue(BigDecimal.ZERO);
+                dto.setTotalBookings(bookingCount);
+                
+                hotelRevenueMap.put(hotelId, dto);
+            }
+            
+            // Xử lý pending revenues
+            for (Object[] row : pendingRevenues) {
+                Long hotelId = ((Number) row[0]).longValue();
+                String hotelName = (String) row[1];
+                BigDecimal pendingRev = (BigDecimal) row[2];
+                Integer pendingCount = ((Number) row[3]).intValue();
+                
+                HotelRevenueDTO dto = hotelRevenueMap.getOrDefault(hotelId, new HotelRevenueDTO());
+                if (dto.getHotelId() == null) {
+                    dto.setHotelId(hotelId);
+                    dto.setHotelName(hotelName);
+                    dto.setTotalRevenue(BigDecimal.ZERO);
+                    dto.setApprovedBookings(0);
+                }
+                dto.setPendingRevenue(pendingRev);
+                dto.setTotalBookings((dto.getTotalBookings() != null ? dto.getTotalBookings() : 0) + pendingCount);
+                
+                hotelRevenueMap.put(hotelId, dto);
+            }
+            
+            List<HotelRevenueDTO> hotelRevenues = new ArrayList<>(hotelRevenueMap.values());
+            
+            // Đếm tổng số transactions
+            List<Booking_transactionsEntity> allTransactions = booking_transactionsRepository.findByOwnerId(ownerId);
+            int totalTransactions = allTransactions.size();
+            int approvedTransactions = (int) allTransactions.stream()
+                .filter(t -> t.getStatus() == Booking_transactionsEntity.Status.APPROVED)
+                .count();
+            
+            RevenueSummaryDTO summary = new RevenueSummaryDTO();
+            summary.setTotalRevenue(totalRevenue);
+            summary.setPendingRevenue(pendingRevenue);
+            summary.setOwnerRevenue(totalRevenue);
+            summary.setAdminRevenue(BigDecimal.ZERO); // Owner không cần admin revenue
+            summary.setTotalTransactions(totalTransactions);
+            summary.setApprovedTransactions(approvedTransactions);
+            summary.setHotelRevenues(hotelRevenues);
+            
+            return httpResponseUtil.ok("Get owner revenue success", summary);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting owner revenue", e);
+        }
+    }
+    
+    // Lấy doanh thu tổng của admin
+    public ResponseEntity<Apireponsi<RevenueSummaryDTO>> getAdminRevenue() {
+        try {
+            // Tính tổng doanh thu admin (từ Admin_mount)
+            BigDecimal adminRevenue = booking_transactionsRepository.getTotalAdminRevenue();
+            if (adminRevenue == null) adminRevenue = BigDecimal.ZERO;
+            
+            // Tính doanh thu chờ duyệt
+            BigDecimal pendingAdminRevenue = booking_transactionsRepository.getPendingAdminRevenue();
+            if (pendingAdminRevenue == null) pendingAdminRevenue = BigDecimal.ZERO;
+            
+            // Tính tổng doanh thu hệ thống
+            BigDecimal totalSystemRevenue = booking_transactionsRepository.getTotalSystemRevenue();
+            if (totalSystemRevenue == null) totalSystemRevenue = BigDecimal.ZERO;
+            
+            // Tính tổng doanh thu của owners (từ User_mount)
+            BigDecimal ownerRevenue = totalSystemRevenue.subtract(adminRevenue);
+            
+            // Đếm transactions
+            List<Booking_transactionsEntity> allTransactions = booking_transactionsRepository.findAll();
+            int totalTransactions = allTransactions.size();
+            int approvedTransactions = (int) allTransactions.stream()
+                .filter(t -> t.getStatus() == Booking_transactionsEntity.Status.APPROVED)
+                .count();
+            
+            RevenueSummaryDTO summary = new RevenueSummaryDTO();
+            summary.setTotalRevenue(totalSystemRevenue);
+            summary.setPendingRevenue(pendingAdminRevenue);
+            summary.setAdminRevenue(adminRevenue);
+            summary.setOwnerRevenue(ownerRevenue);
+            summary.setTotalTransactions(totalTransactions);
+            summary.setApprovedTransactions(approvedTransactions);
+            summary.setHotelRevenues(new ArrayList<>()); // Admin không cần chi tiết theo hotel
+            
+            return httpResponseUtil.ok("Get admin revenue success", summary);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting admin revenue", e);
         }
     }
 }
