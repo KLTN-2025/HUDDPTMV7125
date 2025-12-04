@@ -1,0 +1,255 @@
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion'
+import { Link, useSearchParams } from 'react-router-dom'
+import { authService } from '../services/authService'
+import Header from '../components/Header'
+
+const Login = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+  })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{
+    username?: string
+    password?: string
+  }>({})
+
+  // Đọc error message từ URL parameter khi component mount
+  useEffect(() => {
+    const errorParam = searchParams.get('error')
+    const messageParam = searchParams.get('message')
+    
+    if (errorParam === 'oauth2_failed' && messageParam) {
+      setError(decodeURIComponent(messageParam))
+      // Xóa query params sau khi đọc để tránh hiển thị lại khi refresh
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  const validateForm = () => {
+    const errors: { username?: string; password?: string } = {}
+    
+    if (!formData.username.trim()) {
+      errors.username = 'Tài khoản là bắt buộc'
+    } else if (formData.username.trim().length < 3) {
+      errors.username = 'Tài khoản phải có ít nhất 3 ký tự'
+    }
+    
+    if (!formData.password) {
+      errors.password = 'Mật khẩu là bắt buộc'
+    } else if (formData.password.length < 6) {
+      errors.password = 'Mật khẩu phải có ít nhất 6 ký tự'
+    }
+    
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    
+    if (!validateForm()) {
+      return
+    }
+    
+    setLoading(true)
+
+    try {
+      const response = await authService.login(formData)
+      
+      // Kiểm tra xem token đã được lưu chưa
+      const token = localStorage.getItem('token')
+      const role = authService.getUserRole()
+      
+      if (!token) {
+        setError('Đăng nhập không thành công. Vui lòng thử lại sau.')
+        return
+      }
+      
+      if (!role) {
+        if (response && typeof response === 'object' && 'data' in response) {
+          const responseData = response as { data?: { role?: string }; message?: string }
+          if (responseData.data && typeof responseData.data === 'object' && 'role' in responseData.data) {
+            const loginData = responseData.data as { role: string }
+            const normalizedRole = (loginData.role?.replace('ROLE_', '') || '').toUpperCase()
+            localStorage.setItem('userRole', normalizedRole)
+            
+            // Đợi một chút để đảm bảo localStorage đã được set
+            await new Promise(resolve => setTimeout(resolve, 100))
+            
+            // Navigate sau khi set role - sử dụng window.location để tránh React Router re-render issues
+            if (normalizedRole === 'ADMIN') {
+              window.location.href = '/admin'
+            } else if (normalizedRole === 'OWNER') {
+              window.location.href = '/owner'
+            } else {
+              window.location.href = '/hotels'
+            }
+            return
+          }
+        }
+        setError('Đăng nhập không thành công. Vui lòng thử lại sau.')
+        return
+      }
+      
+      // Đợi một chút để đảm bảo localStorage đã được set
+      await new Promise(resolve => setTimeout(resolve, 100))
+      
+      if (role === 'ADMIN') {
+        window.location.href = '/admin'
+      } else if (role === 'OWNER') {
+        window.location.href = '/owner'
+      } else {
+        window.location.href = '/hotels'
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      setError(error.response?.data?.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại tài khoản và mật khẩu.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = () => {
+    // Sử dụng backend URL từ environment hoặc fallback về localhost
+    const backendUrl = import.meta.env.VITE_API_URL || 'http://localhost:8081'
+    // Redirect đến backend OAuth2 endpoint - backend sẽ redirect đến Google
+    window.location.href = `${backendUrl}/oauth2/authorization/google`
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <Header />
+      {/* Login Form */}
+      <div className="flex items-center justify-center min-h-[calc(100vh-100px)] px-4 py-8">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-gray-100 rounded-lg border-2 border-purple-500 p-6 md:p-8 w-full max-w-md"
+        >
+          <h1 className="text-2xl md:text-3xl font-bold text-blue-600 mb-2">
+            Đăng Nhập 👋
+          </h1>
+          <p className="text-gray-600 mb-6 text-sm md:text-base">
+            Đăng nhập để sử dụng dịch vụ của chúng tôi
+          </p>
+
+          {error && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-blue-600 font-semibold mb-2 text-sm md:text-base">
+                Tài Khoản
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  ✉️
+                </span>
+                <input
+                  type="text"
+                  placeholder="Nhập tài khoản"
+                  value={formData.username}
+                  onChange={(e) => {
+                    setFormData({ ...formData, username: e.target.value })
+                    if (validationErrors.username) {
+                      setValidationErrors({ ...validationErrors, username: undefined })
+                    }
+                  }}
+                  className={`w-full pl-10 pr-4 py-2.5 md:py-3 bg-gray-200 rounded-lg border-2 outline-none text-sm md:text-base ${
+                    validationErrors.username ? 'border-red-500' : 'border-transparent'
+                  }`}
+                />
+              </div>
+              {validationErrors.username && (
+                <p className="mt-1 text-sm text-red-500">{validationErrors.username}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-blue-600 font-semibold mb-2 text-sm md:text-base">
+                Mật Khẩu
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 transform -translate-y-1/2">
+                  🔒
+                </span>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Nhập Mật Khẩu"
+                  value={formData.password}
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value })
+                    if (validationErrors.password) {
+                      setValidationErrors({ ...validationErrors, password: undefined })
+                    }
+                  }}
+                  className={`w-full pl-10 pr-12 py-2.5 md:py-3 bg-gray-200 rounded-lg border-2 outline-none text-sm md:text-base ${
+                    validationErrors.password ? 'border-red-500' : 'border-transparent'
+                  }`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-lg cursor-pointer select-none"
+                >
+                  {showPassword ? '🙈' : '👁️'}
+                </button>
+              </div>
+              {validationErrors.password && (
+                <p className="mt-1 text-sm text-red-500">{validationErrors.password}</p>
+              )}
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-600 text-white py-2.5 md:py-3 rounded-lg font-semibold hover:bg-blue-700 transition text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Đang đăng nhập...' : 'Đăng Nhập'}
+            </button>
+
+            <div className="text-right">
+              <Link
+                to="/forgot-password"
+                className="text-blue-600 hover:underline text-sm md:text-base"
+              >
+                Quên mật khẩu?
+              </Link>
+            </div>
+          </form>
+
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              handleGoogleLogin()
+            }}
+            className="w-full bg-white border border-gray-300 py-2.5 md:py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-gray-50 transition text-sm md:text-base mt-4"
+          >
+            <span className="text-lg md:text-xl">G</span>
+            <span>Đăng nhập với tài khoản Google</span>
+          </button>
+
+          <p className="text-center text-gray-600 text-sm md:text-base mt-4">
+            Bạn chưa có tài khoản?{' '}
+            <a href="/register" className="text-blue-600 hover:underline font-semibold">
+              Đăng ký ngay
+            </a>
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  )
+}
+
+export default Login
