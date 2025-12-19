@@ -1,6 +1,7 @@
 # 🏨 HỆ THỐNG ĐẶT PHÒNG KHÁCH SẠN (HOTEL BOOKING SYSTEM)
 
 ## 📋 Mục lục
+
 1. [Tổng quan dự án](#tổng-quan-dự-án)
 2. [Công nghệ sử dụng](#công-nghệ-sử-dụng)
 3. [Cấu trúc dự án](#cấu-trúc-dự-án)
@@ -12,9 +13,16 @@
 
 ---
 
+-Backend được xây dựng bằng Java JDK 21.0.8 (LTS) kết hợp với Maven 3.9.11, giúp nâng cao hiệu năng xử lý, đảm bảo tính ổn định lâu dài và hỗ trợ quản lý thư viện hiệu quả cho ứng dụng Spring Boot.
+
+-Frontend được phát triển bằng React, sử dụng Node.js v24.11.0 và npm 11.6.1, cho phép xây dựng giao diện người dùng nhanh, mượt và tương thích tốt với các công nghệ web hiện đại.
+
+-Môi trường phát triển này giúp các thành viên trong nhóm dễ dàng đồng bộ, triển khai và bảo trì hệ thống trong suốt quá trình phát triển và vận hành.
+
 ## 🎯 Tổng quan dự án
 
 Hệ thống đặt phòng khách sạn là một ứng dụng web full-stack cho phép:
+
 - **Người dùng (USER)**: Tìm kiếm, xem chi tiết, đặt phòng khách sạn, thanh toán qua VNPay
 - **Chủ khách sạn (OWNER)**: Quản lý khách sạn, phòng, xem doanh thu, rút tiền
 - **Quản trị viên (ADMIN)**: Duyệt khách sạn, quản lý giao dịch, quản lý yêu cầu rút tiền, xem tổng doanh thu
@@ -24,15 +32,16 @@ Hệ thống đặt phòng khách sạn là một ứng dụng web full-stack ch
 ## 🛠️ Công nghệ sử dụng
 
 ### Frontend (FE)
+
 - **Framework**: React 19.2.0 với TypeScript
 - **Routing**: React Router DOM 7.9.6
-- **UI Library**: 
+- **UI Library**:
   - Tailwind CSS 3.4.0 (styling)
   - Ant Design 6.0.0 (components)
   - @ant-design/charts 2.6.6 (biểu đồ)
   - Framer Motion 12.23.24 (animations)
   - Lucide React 0.554.0 (icons)
-- **Form Management**: 
+- **Form Management**:
   - React Hook Form 7.66.1
   - Zod 4.1.12 (validation)
 - **HTTP Client**: Axios 1.13.2
@@ -40,13 +49,14 @@ Hệ thống đặt phòng khách sạn là một ứng dụng web full-stack ch
 - **Build Tool**: Vite 7.2.2
 
 ### Backend (BE)
+
 - **Framework**: Spring Boot 3.3.4
 - **Language**: Java 17
-- **Security**: 
+- **Security**:
   - Spring Security
   - JWT (JSON Web Token)
   - OAuth2 (Google Login)
-- **Database**: 
+- **Database**:
   - MySQL 8.0
   - Spring Data JPA / Hibernate
 - **Payment**: VNPay Integration
@@ -57,6 +67,7 @@ Hệ thống đặt phòng khách sạn là một ứng dụng web full-stack ch
 - **Other**: Lombok, Jackson (JSON serialization)
 
 ### Database
+
 - **RDBMS**: MySQL 8.0
 - **Encoding**: UTF-8 (utf8mb4)
 
@@ -131,6 +142,7 @@ Khoaluan/
 **⚠️ QUAN TRỌNG:** Bạn PHẢI cấu hình environment variables trước khi chạy Backend và Frontend. Tất cả các giá trị nhạy cảm (passwords, API keys) đều được lưu trong environment variables để bảo mật.
 
 #### Yêu cầu hệ thống
+
 - Node.js >= 18.x
 - Java 17
 - Maven 3.8+
@@ -141,6 +153,7 @@ Khoaluan/
 #### Backend Environment Variables (BE/.env)
 
 1. **Tạo file `.env` trong thư mục `BE/`:**
+
    ```bash
    cd BE
    cat > .env << EOF
@@ -148,26 +161,26 @@ Khoaluan/
    export DB_URL=jdbc:mysql://localhost:3306/KLTN?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
    export DB_USERNAME=root
    export DB_PASSWORD=123456
-   
+
    # Server
    export SERVER_PORT=8081
    export SERVER_PUBLIC_URL=http://localhost:8081
-   
+
    # Frontend
    export FRONTEND_URL=http://localhost:3000
-   
+
    # Email (Gmail SMTP) - Bắt buộc cho OTP
    export MAIL_USERNAME=your-email@gmail.com
    export MAIL_PASSWORD=your-app-password
-   
+
    # VNPay - Bắt buộc cho payment
    export VNPAY_TMN_CODE=your-tmn-code
    export VNPAY_HASH_SECRET=your-hash-secret
-   
+
    # Google OAuth2 - Bắt buộc cho Google login
    export GOOGLE_CLIENT_ID=your-google-client-id
    export GOOGLE_CLIENT_SECRET=your-google-client-secret
-   
+
    # APIs - Bắt buộc
    export OPENAI_API_KEY=your-openai-api-key
    export GOOGLE_MAPS_API_KEY=your-google-maps-api-key
@@ -175,6 +188,7 @@ Khoaluan/
    ```
 
 2. **Load environment variables:**
+
    ```bash
    source .env
    ```
@@ -184,15 +198,16 @@ Khoaluan/
 #### Frontend Environment Variables
 
 1. **Tạo file `.env` trong thư mục `FE/`:**
+
    ```bash
    cd FE
    cat > .env << EOF
    # API URL
    VITE_API_URL=http://localhost:8081
-   
+
    # Google Maps API Key - Bắt buộc cho Maps
    VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
-   
+
    # Cloudinary - Bắt buộc cho upload ảnh
    VITE_CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
    VITE_CLOUDINARY_UPLOAD_PRESET=your-upload-preset
@@ -205,54 +220,59 @@ Khoaluan/
 
 **Backend (BE/.env):**
 
-| Biến môi trường | Mô tả | Giá trị mặc định | Bắt buộc |
-|----------------|-------|------------------|----------|
-| `DB_URL` | Database connection URL | `jdbc:mysql://localhost:3306/KLTN?...` | Không |
-| `DB_USERNAME` | Database username | `root` | Không |
-| `DB_PASSWORD` | Database password | `123456` | Không |
-| `SERVER_PORT` | Port của backend server | `8081` | Không |
-| `SERVER_PUBLIC_URL` | Public URL của backend | `http://localhost:8081` | Không |
-| `FRONTEND_URL` | URL của frontend | `http://localhost:3000` | Không |
-| `MAIL_USERNAME` | Email để gửi OTP | - | Có (cho OTP) |
-| `MAIL_PASSWORD` | App password của Gmail | - | Có (cho OTP) |
-| `VNPAY_TMN_CODE` | VNPay Terminal Code | - | Có (cho payment) |
-| `VNPAY_HASH_SECRET` | VNPay Hash Secret | - | Có (cho payment) |
-| `GOOGLE_CLIENT_ID` | Google OAuth2 Client ID | - | Có (cho Google login) |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth2 Client Secret | - | Có (cho Google login) |
-| `OPENAI_API_KEY` | OpenAI API Key | - | Có (cho AI Chat) |
-| `GOOGLE_MAPS_API_KEY` | Google Maps API Key | - | Có (cho Maps) |
+| Biến môi trường        | Mô tả                       | Giá trị mặc định                       | Bắt buộc              |
+| ---------------------- | --------------------------- | -------------------------------------- | --------------------- |
+| `DB_URL`               | Database connection URL     | `jdbc:mysql://localhost:3306/KLTN?...` | Không                 |
+| `DB_USERNAME`          | Database username           | `root`                                 | Không                 |
+| `DB_PASSWORD`          | Database password           | `123456`                               | Không                 |
+| `SERVER_PORT`          | Port của backend server     | `8081`                                 | Không                 |
+| `SERVER_PUBLIC_URL`    | Public URL của backend      | `http://localhost:8081`                | Không                 |
+| `FRONTEND_URL`         | URL của frontend            | `http://localhost:3000`                | Không                 |
+| `MAIL_USERNAME`        | Email để gửi OTP            | -                                      | Có (cho OTP)          |
+| `MAIL_PASSWORD`        | App password của Gmail      | -                                      | Có (cho OTP)          |
+| `VNPAY_TMN_CODE`       | VNPay Terminal Code         | -                                      | Có (cho payment)      |
+| `VNPAY_HASH_SECRET`    | VNPay Hash Secret           | -                                      | Có (cho payment)      |
+| `GOOGLE_CLIENT_ID`     | Google OAuth2 Client ID     | -                                      | Có (cho Google login) |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth2 Client Secret | -                                      | Có (cho Google login) |
+| `OPENAI_API_KEY`       | OpenAI API Key              | -                                      | Có (cho AI Chat)      |
+| `GOOGLE_MAPS_API_KEY`  | Google Maps API Key         | -                                      | Có (cho Maps)         |
 
 **Frontend (FE/.env):**
 
-| Biến môi trường | Mô tả | Bắt buộc |
-|----------------|-------|----------|
-| `VITE_API_URL` | URL của backend API | Không (mặc định: `http://localhost:8081`) |
-| `VITE_GOOGLE_MAPS_API_KEY` | Google Maps API Key | Có (cho Maps) |
-| `VITE_CLOUDINARY_CLOUD_NAME` | Cloudinary Cloud Name | Có (cho upload ảnh) |
-| `VITE_CLOUDINARY_UPLOAD_PRESET` | Cloudinary Upload Preset | Có (cho upload ảnh) |
-| `VITE_CLOUDINARY_API_KEY` | Cloudinary API Key | Có (cho upload ảnh) |
-| `VITE_CLOUDINARY_API_SECRET` | Cloudinary API Secret | Không (cho unsigned upload) |
+| Biến môi trường                 | Mô tả                    | Bắt buộc                                  |
+| ------------------------------- | ------------------------ | ----------------------------------------- |
+| `VITE_API_URL`                  | URL của backend API      | Không (mặc định: `http://localhost:8081`) |
+| `VITE_GOOGLE_MAPS_API_KEY`      | Google Maps API Key      | Có (cho Maps)                             |
+| `VITE_CLOUDINARY_CLOUD_NAME`    | Cloudinary Cloud Name    | Có (cho upload ảnh)                       |
+| `VITE_CLOUDINARY_UPLOAD_PRESET` | Cloudinary Upload Preset | Có (cho upload ảnh)                       |
+| `VITE_CLOUDINARY_API_KEY`       | Cloudinary API Key       | Có (cho upload ảnh)                       |
+| `VITE_CLOUDINARY_API_SECRET`    | Cloudinary API Secret    | Không (cho unsigned upload)               |
 
 #### Hướng dẫn lấy API Keys
 
 1. **Gmail App Password:**
+
    - Vào Google Account → Security → 2-Step Verification
    - Tạo App Password cho "Mail"
 
 2. **VNPay Credentials:**
+
    - Đăng ký tại [VNPay Sandbox](https://sandbox.vnpayment.vn/)
    - Lấy TMN Code và Hash Secret
 
 3. **Google OAuth2:**
+
    - Vào [Google Cloud Console](https://console.cloud.google.com/)
    - Tạo OAuth 2.0 Client ID
    - Thêm authorized redirect URI: `http://localhost:8081/login/oauth2/code/google`
 
 4. **OpenAI API Key:**
+
    - Đăng ký tại [OpenAI](https://platform.openai.com/)
    - Tạo API key trong API Keys section
 
 5. **Google Maps API Key:**
+
    - Vào [Google Cloud Console](https://console.cloud.google.com/)
    - Enable Maps JavaScript API và Geocoding API
    - Tạo API Key
@@ -269,21 +289,26 @@ Khoaluan/
 #### Bước 1: Cài đặt Database
 
 1. **Tạo database MySQL:**
+
    ```bash
    mysql -u root -p
    ```
+
    Trong MySQL console:
+
    ```sql
    CREATE DATABASE KLTN CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
    EXIT;
    ```
 
 2. **Chạy script setup để tạo tables và dữ liệu mẫu:**
+
    ```bash
    mysql -u root -p KLTN < BE/src/main/resources/setup.sql
    ```
-   
+
    Script này sẽ:
+
    - Tạo tất cả các bảng cần thiết
    - Thêm dữ liệu mẫu (users, hotels, rooms, bookings, etc.)
    - Tạo admin user: `username=admin`, `password=123456`
@@ -301,6 +326,7 @@ Khoaluan/
 **Lưu ý:** Bạn đã cấu hình environment variables ở phần trên rồi. Nếu chưa, quay lại phần [Cấu hình môi trường](#-cấu-hình-môi-trường-bắt-buộc---làm-đầu-tiên).
 
 1. **Load environment variables:**
+
    ```bash
    cd BE
    source .env
@@ -315,12 +341,14 @@ Khoaluan/
 #### Bước 3: Chạy Backend
 
 1. **Chạy Backend:**
+
    ```bash
    cd BE
    ./mvnw spring-boot:run
    ```
-   
+
    Hoặc nếu đã load environment variables:
+
    ```bash
    cd BE
    source .env && ./mvnw spring-boot:run
@@ -337,6 +365,7 @@ Backend sẽ chạy tại: `http://localhost:8081`
 **Lưu ý:** Script này cần Backend đã chạy và có Google Maps API Key.
 
 1. **Chạy script geocode để thêm tọa độ (latitude/longitude) cho các khách sạn:**
+
    ```bash
    cd BE
    chmod +x run-geocode-now.sh
@@ -344,6 +373,7 @@ Backend sẽ chạy tại: `http://localhost:8081`
    ```
 
    Script này sẽ:
+
    - Đăng nhập với admin account (username: `admin`, password: `123456`)
    - Tìm tất cả khách sạn chưa có latitude/longitude
    - Geocode địa chỉ của từng khách sạn bằng Google Maps API
@@ -358,15 +388,16 @@ Backend sẽ chạy tại: `http://localhost:8081`
 #### Bước 5: Cấu hình Frontend
 
 1. **Tạo file `.env` trong thư mục `FE/`:**
+
    ```bash
    cd FE
    cat > .env << EOF
    # API URL
    VITE_API_URL=http://localhost:8081
-   
+
    # Google Maps API Key - Bắt buộc cho Maps
    VITE_GOOGLE_MAPS_API_KEY=your-google-maps-api-key
-   
+
    # Cloudinary - Bắt buộc cho upload ảnh
    VITE_CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
    VITE_CLOUDINARY_UPLOAD_PRESET=your-upload-preset
@@ -384,6 +415,7 @@ Backend sẽ chạy tại: `http://localhost:8081`
 #### Bước 6: Chạy Frontend
 
 1. **Chạy Frontend:**
+
    ```bash
    cd FE
    npm run dev
@@ -431,6 +463,7 @@ npm run dev
 ### Kiểm tra hệ thống đã hoạt động
 
 1. **Backend:**
+
    - `http://localhost:8081/api/hotels?page=0&size=5` - Xem danh sách khách sạn
    - `http://localhost:8081/api/auth/login` - Test đăng nhập
 
@@ -445,6 +478,7 @@ npm run dev
 ## 🎯 Các chức năng chính
 
 ### 1. **Xác thực người dùng (Authentication)**
+
 - Đăng ký tài khoản (USER, OWNER)
 - Đăng nhập (Email/Password)
 - Đăng nhập bằng Google (OAuth2)
@@ -455,6 +489,7 @@ npm run dev
 - Protected routes theo role (USER, OWNER, ADMIN)
 
 ### 2. **Quản lý khách sạn (Hotel Management)**
+
 - Tìm kiếm khách sạn (theo tên, địa chỉ)
 - Xem danh sách khách sạn (có phân trang, sắp xếp)
 - Xem chi tiết khách sạn
@@ -466,6 +501,7 @@ npm run dev
 - Geocoding: Chuyển đổi địa chỉ thành tọa độ (lat/lng) - tự động hoặc thủ công
 
 ### 3. **Quản lý phòng (Room Management)**
+
 - Xem danh sách phòng của khách sạn
 - Chủ khách sạn: Tạo, chỉnh sửa phòng
 - Quản lý giá phòng, loại phòng, sức chứa
@@ -475,6 +511,7 @@ npm run dev
 - Xem lịch sử đặt phòng theo từng phòng
 
 ### 4. **Đặt phòng (Booking)**
+
 - Chọn ngày check-in/check-out
 - Chọn số lượng khách
 - Chọn phòng
@@ -488,6 +525,7 @@ npm run dev
 - Hủy đặt phòng (status = REFUNDED)
 
 ### 5. **Thanh toán (Payment)**
+
 - Tích hợp VNPay
 - Tạo giao dịch thanh toán
 - Xử lý callback từ VNPay
@@ -495,6 +533,7 @@ npm run dev
 - Tạo booking transaction (phân chia doanh thu)
 
 ### 6. **Quản lý ví (Wallet Management)**
+
 - Mỗi user có một ví (wallet)
 - Xem số dư ví (hiển thị trong header)
 - Owner: Yêu cầu rút tiền
@@ -505,6 +544,7 @@ npm run dev
 - Hoàn tiền nếu yêu cầu bị từ chối
 
 ### 7. **Quản lý doanh thu (Revenue Management)**
+
 - Owner: Xem doanh thu theo từng khách sạn
 - Owner: Xem biểu đồ doanh thu (Column chart)
 - Owner: Xem giao dịch của mình (my-transactions)
@@ -514,11 +554,13 @@ npm run dev
 - Phân loại: Approved, Pending
 
 ### 8. **Đánh giá khách sạn (Reviews)**
+
 - User: Xem đánh giá
 - User: Viết đánh giá (sau khi đã đặt phòng)
 - Hiển thị rating trung bình
 
 ### 9. **Quản trị viên (Admin Dashboard)**
+
 - Duyệt/từ chối khách sạn mới
 - Quản lý tất cả khách sạn (pending, success, fail)
 - Tìm kiếm khách sạn trong danh sách quản lý
@@ -529,6 +571,7 @@ npm run dev
 - Geocoding: Geocode tất cả khách sạn hoặc một khách sạn cụ thể
 
 ### 10. **Trang thông tin (Info Pages)**
+
 - Trang chủ (Home)
 - Giới thiệu (About) - lấy từ company_info
 - Liên hệ (Contact) - có Google Maps, contact_info, offices
@@ -536,12 +579,14 @@ npm run dev
 - Gửi tin nhắn liên hệ (contact message)
 
 ### 11. **AI Chat**
+
 - Chatbot tích hợp OpenAI
 - Trả lời câu hỏi về khách sạn, đặt phòng
 - Tự động tìm và gợi ý khách sạn phù hợp
 - Hiển thị lịch sử đặt phòng của user (nếu đã đăng nhập)
 
 ### 12. **Geocoding (Chuyển đổi địa chỉ thành tọa độ)**
+
 - Chuyển đổi địa chỉ thành latitude/longitude
 - Place autocomplete (gợi ý địa chỉ khi nhập)
 - Lấy chi tiết địa điểm từ place ID
@@ -555,6 +600,7 @@ npm run dev
 ### 1. **Đăng ký tài khoản (Register)**
 
 #### Frontend (`FE/src/pages/Register.tsx`)
+
 ```typescript
 1. User điền form (username, email, password, phone, role)
 2. Validate form với react-hook-form + zod
@@ -562,12 +608,14 @@ npm run dev
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Auth/authController.java`)
+
 ```java
 1. Nhận request tại: POST /api/auth/register
 2. Controller gọi: authService.registerUser(dto, "USER")
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/AuthService.java`)
+
 ```java
 1. Validate dữ liệu
 2. Kiểm tra email/username đã tồn tại chưa
@@ -579,6 +627,7 @@ npm run dev
 ```
 
 #### Database
+
 ```sql
 1. INSERT INTO Users (username, email, password, phone, role_id, verified)
 2. INSERT INTO wallets (user_id, balance) VALUES (new_user_id, 0)
@@ -586,6 +635,7 @@ npm run dev
 ```
 
 **Nghiệp vụ:**
+
 - User đăng ký với email, password
 - Hệ thống tạo tài khoản nhưng chưa verified
 - Gửi OTP qua email để xác thực
@@ -596,6 +646,7 @@ npm run dev
 ### 2. **Đăng nhập (Login)**
 
 #### Frontend (`FE/src/pages/Login.tsx`)
+
 ```typescript
 1. User điền email và password
 2. Gọi API: authService.login({ email, password })
@@ -604,12 +655,14 @@ npm run dev
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Auth/authController.java`)
+
 ```java
 1. Nhận request tại: POST /api/auth/login
 2. Controller gọi: authService.login(dto)
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/AuthService.java`)
+
 ```java
 1. Tìm user theo email
 2. Kiểm tra password với BCrypt
@@ -619,11 +672,13 @@ npm run dev
 ```
 
 #### Database
+
 ```sql
 SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 **Nghiệp vụ:**
+
 - User đăng nhập với email/password
 - Hệ thống xác thực và trả về JWT token
 - Token được dùng cho các request tiếp theo
@@ -634,6 +689,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ### 3. **Tạo khách sạn mới (Create Hotel)**
 
 #### Frontend (`FE/src/pages/OwnerDashboard.tsx`)
+
 ```typescript
 1. Owner click "Thêm khách sạn"
 2. Mở modal với HotelForm component
@@ -643,6 +699,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/hotel/HotelRequestController.java`)
+
 ```java
 1. Nhận request tại: POST /api/hotel/create
 2. @PreAuthorize("hasRole('OWNER')") - chỉ OWNER mới được
@@ -650,6 +707,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/HotelService.java`)
+
 ```java
 1. Lấy thông tin owner từ SecurityContext
 2. Upload ảnh lên Cloudinary
@@ -660,6 +718,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 #### Database
+
 ```sql
 1. INSERT INTO hotel (name, address, phone, description, status, owner_user, deleted)
    VALUES (?, ?, ?, ?, 'pending', ?, false)
@@ -669,6 +728,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 **Nghiệp vụ:**
+
 - Owner tạo khách sạn mới
 - Khách sạn có trạng thái "pending" (chờ duyệt)
 - Admin phải duyệt thì khách sạn mới hiển thị công khai
@@ -679,6 +739,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ### 4. **Duyệt khách sạn (Approve Hotel)**
 
 #### Frontend (`FE/src/pages/AdminDashboard.tsx`)
+
 ```typescript
 1. Admin xem danh sách khách sạn chờ duyệt
 2. Click "Duyệt" hoặc "Từ chối"
@@ -686,6 +747,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Admin/HotelController.java`)
+
 ```java
 1. Nhận request tại: PUT /api/admin/hotels/{id}/approve
 2. @PreAuthorize("hasRole('ADMIN')") - chỉ ADMIN mới được
@@ -693,6 +755,7 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/HotelService.java`)
+
 ```java
 1. Tìm hotel theo id
 2. Kiểm tra hotel có status = "pending"
@@ -701,11 +764,13 @@ SELECT * FROM Users WHERE email = ? AND verified = true
 ```
 
 #### Database
+
 ```sql
 UPDATE hotel SET status = 'success' WHERE id = ? AND status = 'pending'
 ```
 
 **Nghiệp vụ:**
+
 - Admin xem danh sách khách sạn chờ duyệt
 - Admin có thể duyệt (status = "success") hoặc từ chối (status = "fail")
 - Chỉ khách sạn đã được duyệt mới hiển thị cho user
@@ -715,6 +780,7 @@ UPDATE hotel SET status = 'success' WHERE id = ? AND status = 'pending'
 ### 5. **Đặt phòng (Create Booking)**
 
 #### Frontend (`FE/src/pages/Booking.tsx`)
+
 ```typescript
 1. User chọn hotel, check-in, check-out, số khách
 2. Chọn phòng từ danh sách
@@ -724,6 +790,7 @@ UPDATE hotel SET status = 'success' WHERE id = ? AND status = 'pending'
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Booking/BookingController.java`)
+
 ```java
 1. Nhận request tại: POST /api/booking/create
 2. @PreAuthorize("hasRole('USER')") - chỉ USER mới được
@@ -731,6 +798,7 @@ UPDATE hotel SET status = 'success' WHERE id = ? AND status = 'pending'
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/BookingService.java`)
+
 ```java
 1. Validate check-in < check-out
 2. Kiểm tra phòng có available không
@@ -742,19 +810,21 @@ UPDATE hotel SET status = 'success' WHERE id = ? AND status = 'pending'
 ```
 
 #### Database
+
 ```sql
-INSERT INTO booking (status, booking_date, check_in_date, check_out_date, 
+INSERT INTO booking (status, booking_date, check_in_date, check_out_date,
                      total_price, qr_url, user_id, hotel_id, rooms_id)
 VALUES ('PENDING', NOW(), ?, ?, ?, '/uploads/qr/qr_booking_{id}.png', ?, ?, ?)
 ```
 
 **Nghiệp vụ:**
+
 - User đặt phòng với thông tin check-in/check-out
 - Hệ thống validate: ngày không được quá khứ, phòng phải available
 - Kiểm tra xung đột: phòng đã được đặt trong khoảng thời gian này chưa
 - Booking được tạo với trạng thái PENDING (chờ thanh toán)
 - Tự động tạo QR code chứa thông tin booking (tên user, hotel, phòng, ngày)
-- QR code được lưu tại: /uploads/qr/qr_booking_{id}.png
+- QR code được lưu tại: /uploads/qr/qr*booking*{id}.png
 - User phải thanh toán để booking chuyển sang PAID
 - QR code được dùng để check-in tại khách sạn
 
@@ -763,6 +833,7 @@ VALUES ('PENDING', NOW(), ?, ?, ?, '/uploads/qr/qr_booking_{id}.png', ?, ?, ?)
 ### 6. **Thanh toán qua VNPay (Payment)**
 
 #### Frontend (`FE/src/pages/Checkout.tsx`)
+
 ```typescript
 1. User xem thông tin booking và tổng tiền
 2. Chọn phương thức thanh toán (VNPay)
@@ -772,6 +843,7 @@ VALUES ('PENDING', NOW(), ?, ?, ?, '/uploads/qr/qr_booking_{id}.png', ?, ?, ?)
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Vnpay/VnpayController.java`)
+
 ```java
 1. Nhận request tại: POST /api/vnpay/create
 2. Tạo payment URL với thông tin:
@@ -782,6 +854,7 @@ VALUES ('PENDING', NOW(), ?, ?, ?, '/uploads/qr/qr_booking_{id}.png', ?, ?, ?)
 ```
 
 #### VNPay Callback (`BE/src/main/java/com/example/KLTN/Controller/Vnpay/VnpayController.java`)
+
 ```java
 1. VNPay redirect về: GET /api/vnpay/return
 2. Verify signature từ VNPay
@@ -793,6 +866,7 @@ VALUES ('PENDING', NOW(), ?, ?, ?, '/uploads/qr/qr_booking_{id}.png', ?, ?, ?)
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/BookingService.java`)
+
 ```java
 1. Cập nhật booking status = "PAID"
 2. Tính toán doanh thu:
@@ -806,21 +880,23 @@ VALUES ('PENDING', NOW(), ?, ?, ?, '/uploads/qr/qr_booking_{id}.png', ?, ?, ?)
 ```
 
 #### Database
+
 ```sql
 1. UPDATE booking SET status = 'PAID' WHERE id = ?
 
-2. INSERT INTO booking_transactions (booking_id, hotel_id, owner_id, 
-                                     total_amount, admin_revenue, owner_revenue, 
+2. INSERT INTO booking_transactions (booking_id, hotel_id, owner_id,
+                                     total_amount, admin_revenue, owner_revenue,
                                      status, created_at)
 VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
 ```
 
 **Nghiệp vụ:**
+
 - User thanh toán qua VNPay
 - Sau khi thanh toán thành công, booking chuyển sang PAID
 - Hệ thống tự động phân chia doanh thu:
-  - Admin nhận: totalPrice * adminPercent
-  - Owner nhận: totalPrice * (1 - adminPercent)
+  - Admin nhận: totalPrice \* adminPercent
+  - Owner nhận: totalPrice \* (1 - adminPercent)
 - Transaction có status "pending" cho đến khi owner xác nhận check-in
 
 ---
@@ -828,6 +904,7 @@ VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
 ### 7. **Xem doanh thu (View Revenue)**
 
 #### Frontend - Owner (`FE/src/pages/OwnerDashboard.tsx`)
+
 ```typescript
 1. Owner click tab "Doanh thu"
 2. Gọi API: ownerService.getRevenue()
@@ -839,6 +916,7 @@ VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Admin/TransactionController.java`)
+
 ```java
 1. Nhận request tại: GET /api/admin/transactions/revenue/owner
 2. @PreAuthorize("hasRole('OWNER')")
@@ -846,6 +924,7 @@ VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/Booking_transactionsService.java`)
+
 ```java
 1. Lấy owner từ SecurityContext
 2. Query database:
@@ -857,8 +936,9 @@ VALUES (?, ?, ?, ?, ?, ?, 'pending', NOW())
 ```
 
 #### Database
+
 ```sql
-SELECT 
+SELECT
     hotel_id,
     SUM(CASE WHEN status = 'approved' THEN owner_revenue ELSE 0 END) as approved_revenue,
     SUM(CASE WHEN status = 'pending' THEN owner_revenue ELSE 0 END) as pending_revenue,
@@ -869,6 +949,7 @@ GROUP BY hotel_id
 ```
 
 **Nghiệp vụ:**
+
 - Owner xem doanh thu của tất cả khách sạn của mình
 - Phân loại: Đã duyệt (approved) và Chờ duyệt (pending)
 - Pending: Giao dịch chưa được owner xác nhận check-in
@@ -879,6 +960,7 @@ GROUP BY hotel_id
 ### 8. **Yêu cầu rút tiền (Withdraw Request)**
 
 #### Frontend (`FE/src/pages/OwnerDashboard.tsx`)
+
 ```typescript
 1. Owner click tab "Rút tiền"
 2. Click "Rút tiền"
@@ -889,6 +971,7 @@ GROUP BY hotel_id
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Vnpay/withdrawmoneyController.java`)
+
 ```java
 1. Nhận request tại: POST /api/withdraw/create
 2. @PreAuthorize("hasRole('OWNER')")
@@ -896,6 +979,7 @@ GROUP BY hotel_id
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/withdrawhistoryService.java`)
+
 ```java
 1. Lấy wallet của user
 2. Kiểm tra: amount <= wallet.balance
@@ -906,19 +990,21 @@ GROUP BY hotel_id
 ```
 
 #### Database
+
 ```sql
 1. UPDATE wallets SET balance = balance - ? WHERE user_id = ?
 
-2. INSERT INTO withdraw_history (amount, bank_name, account_number, 
+2. INSERT INTO withdraw_history (amount, bank_name, account_number,
                                  account_holder_name, status, user_id, created_at)
 VALUES (?, ?, ?, ?, 'pending', ?, NOW())
 
-3. INSERT INTO wallet_transaction (wallet_id, amount, transaction_type, 
+3. INSERT INTO wallet_transaction (wallet_id, amount, transaction_type,
                                     status, created_at)
 VALUES (?, ?, 'PAYMENT', 'pending', NOW())
 ```
 
 **Nghiệp vụ:**
+
 - Owner yêu cầu rút tiền từ ví
 - Tiền được trừ ngay khi tạo yêu cầu (không phải chờ duyệt)
 - Admin phải duyệt yêu cầu
@@ -929,6 +1015,7 @@ VALUES (?, ?, 'PAYMENT', 'pending', NOW())
 ### 9. **Duyệt yêu cầu rút tiền (Approve/Reject Withdraw)**
 
 #### Frontend (`FE/src/pages/AdminDashboard.tsx`)
+
 ```typescript
 1. Admin xem danh sách yêu cầu rút tiền
 2. Click "Duyệt" hoặc "Từ chối"
@@ -936,6 +1023,7 @@ VALUES (?, ?, 'PAYMENT', 'pending', NOW())
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/Admin/TransactionController.java`)
+
 ```java
 1. Nhận request tại: PUT /api/admin/withdraws/{id}/approve hoặc /reject
 2. @PreAuthorize("hasRole('ADMIN')")
@@ -943,6 +1031,7 @@ VALUES (?, ?, 'PAYMENT', 'pending', NOW())
 ```
 
 #### Service - Approve (`BE/src/main/java/com/example/KLTN/Service/withdrawhistoryService.java`)
+
 ```java
 1. Tìm withdraw request
 2. Cập nhật status = "resolved"
@@ -951,6 +1040,7 @@ VALUES (?, ?, 'PAYMENT', 'pending', NOW())
 ```
 
 #### Service - Reject (`BE/src/main/java/com/example/KLTN/Service/withdrawhistoryService.java`)
+
 ```java
 1. Tìm withdraw request
 2. Hoàn tiền: wallet.balance += amount
@@ -959,28 +1049,31 @@ VALUES (?, ?, 'PAYMENT', 'pending', NOW())
 ```
 
 #### Database - Approve
+
 ```sql
 1. UPDATE withdraw_history SET status = 'resolved' WHERE id = ?
 
-2. UPDATE wallet_transaction SET status = 'success' 
+2. UPDATE wallet_transaction SET status = 'success'
    WHERE id = ? AND transaction_type = 'PAYMENT'
 ```
 
 #### Database - Reject
+
 ```sql
 1. UPDATE wallets SET balance = balance + ? WHERE user_id = ?
 
 2. UPDATE withdraw_history SET status = 'rejected' WHERE id = ?
 
-3. UPDATE wallet_transaction SET status = 'failed' 
+3. UPDATE wallet_transaction SET status = 'failed'
    WHERE id = ? AND transaction_type = 'PAYMENT'
 
-4. INSERT INTO wallet_transaction (wallet_id, amount, transaction_type, 
+4. INSERT INTO wallet_transaction (wallet_id, amount, transaction_type,
                                     status, created_at)
 VALUES (?, ?, 'DEPOSIT', 'success', NOW())
 ```
 
 **Nghiệp vụ:**
+
 - Admin duyệt yêu cầu rút tiền
 - Nếu duyệt: Chỉ cập nhật status (tiền đã trừ từ trước)
 - Nếu từ chối: Hoàn tiền lại ví và tạo transaction DEPOSIT
@@ -990,6 +1083,7 @@ VALUES (?, ?, 'DEPOSIT', 'success', NOW())
 ### 10. **Tìm kiếm khách sạn (Search Hotels)**
 
 #### Frontend (`FE/src/pages/HotelList.tsx`)
+
 ```typescript
 1. User nhập từ khóa vào search input
 2. Debounce 500ms để tránh gọi API quá nhiều
@@ -997,12 +1091,14 @@ VALUES (?, ?, 'DEPOSIT', 'success', NOW())
 ```
 
 #### Backend (`BE/src/main/java/com/example/KLTN/Controller/hotel/HotelRequestController.java`)
+
 ```java
 1. Nhận request tại: GET /api/hotels?search=...&page=...&size=...
 2. Controller gọi: hotelService.findHotelsWithFilters(filterRequest)
 ```
 
 #### Service (`BE/src/main/java/com/example/KLTN/Service/HotelService.java`)
+
 ```java
 1. Nếu có search query:
    - Tìm hotels có name LIKE %search% OR address LIKE %search%
@@ -1014,19 +1110,21 @@ VALUES (?, ?, 'DEPOSIT', 'success', NOW())
 ```
 
 #### Database
+
 ```sql
 SELECT h.*, MIN(r.price) as min_price
 FROM hotel h
 LEFT JOIN rooms r ON r.hotel_id = h.id AND r.deleted = false
-WHERE h.status = 'success' 
+WHERE h.status = 'success'
   AND h.deleted = false
   AND (h.name LIKE %?% OR h.address LIKE %?%)
 GROUP BY h.id
-ORDER BY ? 
+ORDER BY ?
 LIMIT ? OFFSET ?
 ```
 
 **Nghiệp vụ:**
+
 - User tìm kiếm khách sạn theo tên hoặc địa chỉ
 - Chỉ hiển thị khách sạn đã được duyệt
 - Kết quả có phân trang và sắp xếp
@@ -1129,6 +1227,7 @@ Lưu vào booking_transactions:
 ## 📋 Danh sách API Endpoints đầy đủ
 
 ### Authentication (`/api/auth`)
+
 - `POST /api/auth/register` - Đăng ký USER
 - `POST /api/auth/register/owner` - Đăng ký OWNER
 - `POST /api/auth/login` - Đăng nhập
@@ -1137,6 +1236,7 @@ Lưu vào booking_transactions:
 - `GET /api/auth/success` - OAuth2 success callback
 
 ### Hotels (`/api/hotels`)
+
 - `GET /api/hotels` - Lấy danh sách khách sạn (public, có filter, search, pagination)
 - `GET /api/hotels/{id}` - Lấy chi tiết khách sạn
 - `GET /api/hotels/{id}/rooms` - Lấy danh sách phòng của khách sạn
@@ -1148,6 +1248,7 @@ Lưu vào booking_transactions:
 - `GET /api/hotels/owner/my-hotels` - Lấy danh sách khách sạn của owner
 
 ### Rooms (`/api/rooms`)
+
 - `PUT /api/rooms/{id}/image` - Cập nhật ảnh phòng
 - `PUT /api/rooms/{id}/price` - Cập nhật giá phòng
 - `PUT /api/rooms/{id}/status` - Cập nhật trạng thái phòng (AVAILABLE/UNAVAILABLE)
@@ -1156,23 +1257,28 @@ Lưu vào booking_transactions:
 - `PUT /api/rooms/{id}/capacity` - Cập nhật sức chứa phòng
 
 ### Reviews (`/api/hotels/{id}/reviews`)
+
 - `POST /api/hotels/{id}/reviews` - Tạo đánh giá (USER)
 - `GET /api/hotels/{id}/reviews` - Lấy danh sách đánh giá
 
 ### Bookings (`/api/bookings`)
+
 - `POST /api/bookings/rooms/{roomId}` - Tạo booking (USER)
 - `PUT /api/bookings/{id}/pay` - Thanh toán booking
 - `GET /api/bookings` - Lấy lịch sử đặt phòng của user (USER)
 - `GET /api/bookings/rooms/{roomId}` - Lấy lịch sử đặt phòng theo phòng
 
 ### Payment (`/api/vnpay`)
+
 - `POST /api/vnpay/create` - Tạo payment URL
 - `GET /api/vnpay/return` - Callback từ VNPay
 
 ### Wallet (`/api/wallet`)
+
 - `GET /api/wallet/balance` - Lấy số dư ví (USER/OWNER/ADMIN)
 
 ### Withdraw (`/api/withdraws`)
+
 - `POST /api/withdraws` - Tạo yêu cầu rút tiền (OWNER)
 - `PUT /api/withdraws/{id}/approve` - Duyệt yêu cầu (ADMIN)
 - `PUT /api/withdraws/{id}/reject` - Từ chối yêu cầu (ADMIN)
@@ -1180,12 +1286,14 @@ Lưu vào booking_transactions:
 - `GET /api/withdraws/my-withdraws` - Lấy yêu cầu của mình (OWNER)
 
 ### Admin - Hotels (`/api/admin/hotels`)
+
 - `GET /api/admin/hotels/pending` - Lấy khách sạn chờ duyệt (có search)
 - `GET /api/admin/hotels` - Lấy tất cả khách sạn (có search)
 - `PUT /api/admin/hotels/{id}/approve` - Duyệt khách sạn
 - `PUT /api/admin/hotels/{id}/reject` - Từ chối khách sạn
 
 ### Admin - Transactions (`/api/admin/transactions`)
+
 - `GET /api/admin/transactions` - Lấy tất cả giao dịch
 - `GET /api/admin/transactions/{id}` - Lấy chi tiết giao dịch
 - `PUT /api/admin/transactions/{id}/approve` - Duyệt giao dịch
@@ -1194,11 +1302,13 @@ Lưu vào booking_transactions:
 - `GET /api/admin/transactions/revenue/owner` - Lấy doanh thu owner
 
 ### Admin - Settings (`/api/admin/percent`)
+
 - `GET /api/admin/percent` - Lấy tỷ lệ admin percent
 - `POST /api/admin/percent` - Tạo tỷ lệ admin percent
 - `PUT /api/admin/percent` - Cập nhật tỷ lệ admin percent
 
 ### Info (`/api/info`)
+
 - `GET /api/info/company` - Lấy thông tin công ty
 - `GET /api/info/faqs` - Lấy danh sách FAQ
 - `GET /api/info/contact` - Lấy thông tin liên hệ
@@ -1206,15 +1316,18 @@ Lưu vào booking_transactions:
 - `POST /api/info/contact/message` - Gửi tin nhắn liên hệ
 
 ### Geocoding (`/api/geocoding`)
+
 - `POST /api/geocoding/geocode-address` - Chuyển địa chỉ thành tọa độ
 - `POST /api/geocoding/place-autocomplete` - Gợi ý địa chỉ
 - `POST /api/geocoding/place-details` - Lấy chi tiết địa điểm
 
 ### Geocoding Admin (`/api/geocoding/admin`)
+
 - `POST /api/geocoding/admin/geocode-all-hotels` - Geocode tất cả khách sạn
 - `POST /api/geocoding/admin/geocode-hotel/{hotelId}` - Geocode một khách sạn
 
 ### Chat (`/api/chat`)
+
 - `POST /api/chat` - Gửi tin nhắn đến AI chatbot
 
 ---
@@ -1224,51 +1337,67 @@ Lưu vào booking_transactions:
 ### Các bảng chính:
 
 1. **Users** - Người dùng
+
    - id, username, email, password, phone, verified, role_id, otp, timeExpired
 
 2. **Role** - Vai trò
+
    - id, name (USER, OWNER, ADMIN)
 
 3. **hotel** - Khách sạn
+
    - id, name, address, city, phone, description, image, rating, status, deleted, latitude, longitude, owner_user
 
 4. **hotel_images** - Ảnh khách sạn
+
    - id, image_url, display_order, hotel_id, deleted
 
 5. **rooms** - Phòng
+
    - id, number, type, price, capacity, discount_percent, image, available, deleted, hotel_id
 
 6. **booking** - Đặt phòng
+
    - id, status (PENDING/PAID/FAILED/REFUNDED), booking_date, check_in_date, check_out_date, total_price, qr_url, user_id, hotel_id, rooms_id
 
 7. **booking_transactions** - Giao dịch đặt phòng
+
    - id, booking_id, hotel_id, owner_id, total_amount, admin_revenue, owner_revenue, status (pending/approved), created_at
 
 8. **wallets** - Ví
+
    - id, user_id, balance
 
 9. **withdraw_history** - Lịch sử rút tiền
+
    - id, amount, bank_name, account_number, account_holder_name, status (pending/resolved/rejected), user_id, created_at
 
 10. **wallet_transaction** - Giao dịch ví
+
     - id, wallet_id, amount, transaction_type (PAYMENT/DEPOSIT), status (pending/success/failed), created_at
 
 11. **hotel_reviews** - Đánh giá khách sạn
+
     - id, hotel_id, user_id, rating, comment, created_at
 
 12. **Percen** - Tỷ lệ phần trăm admin
+
     - id, admin_percent (0.0 - 1.0)
 
 13. **company_info** - Thông tin công ty
+
     - id, key, value
 
 14. **faq** - Câu hỏi thường gặp
+
     - id, question, answer, display_order
 
 15. **contact_info** - Thông tin liên hệ
+
     - id, type, title, content, link, display_order
 
 16. **office** - Văn phòng
+
     - id, name, address, phone, email, hours, latitude, longitude, display_order
 
 17. **contact_message** - Tin nhắn liên hệ
@@ -1279,6 +1408,7 @@ Lưu vào booking_transactions:
 ## 📝 Ghi chú
 
 ### Frontend
+
 - Tất cả các form đều sử dụng `react-hook-form` + `zod` để validate
 - Tất cả các trang đều responsive (mobile, tablet, desktop)
 - JWT token được lưu trong localStorage
@@ -1290,6 +1420,7 @@ Lưu vào booking_transactions:
 - React Context: ToastContext cho quản lý toast global
 
 ### Backend
+
 - Soft delete: các bản ghi không bị xóa thật, chỉ đánh dấu `deleted = true`
 - Image upload sử dụng Cloudinary (tự động upload khi tạo/sửa hotel/room)
 - QR Code generation sử dụng ZXing library (Google)
@@ -1301,12 +1432,14 @@ Lưu vào booking_transactions:
 - CORS được cấu hình để cho phép FE gọi API
 
 ### Database
+
 - Sử dụng MySQL 8.0 với encoding UTF-8 (utf8mb4)
 - Foreign key constraints được thiết lập
 - Indexes được tạo cho các trường thường query
 - Soft delete pattern: `deleted` boolean field
 
 ### Tính năng đặc biệt
+
 - QR Code: Tự động tạo khi tạo booking, chứa thông tin booking
 - Geocoding: Tự động chuyển đổi địa chỉ thành lat/lng khi tạo hotel
 - AI Chat: Tích hợp OpenAI, tự động tìm và gợi ý khách sạn
@@ -1319,12 +1452,14 @@ Lưu vào booking_transactions:
 ## 👥 Vai trò người dùng
 
 ### USER (Người dùng)
+
 - Tìm kiếm, xem khách sạn
 - Đặt phòng, thanh toán
 - Xem lịch sử đặt phòng
 - Viết đánh giá
 
 ### OWNER (Chủ khách sạn)
+
 - Tất cả quyền của USER
 - Quản lý khách sạn (tạo, sửa, xóa)
 - Quản lý phòng
@@ -1332,6 +1467,7 @@ Lưu vào booking_transactions:
 - Yêu cầu rút tiền
 
 ### ADMIN (Quản trị viên)
+
 - Tất cả quyền của USER
 - Duyệt/từ chối khách sạn
 - Quản lý tất cả khách sạn
@@ -1353,11 +1489,13 @@ Lưu vào booking_transactions:
 - SQL injection được ngăn chặn bởi JPA/Hibernate
 
 ---
+
 ## 🔧 Components và Utilities
 
 ### Frontend Components
 
 #### Reusable Components
+
 - **AppModal**: Modal component với header, body, footer, responsive
 - **Header**: Global header với navigation, wallet display, booking filter
 - **HotelCard**: Card hiển thị thông tin khách sạn (2 variants: default, dashboard)
@@ -1374,6 +1512,7 @@ Lưu vào booking_transactions:
 - **Toast**: Toast notification component
 
 #### Pages
+
 - **Home**: Trang chủ với hero section, search form, featured hotels
 - **HotelList**: Danh sách khách sạn với filter, search, pagination
 - **HotelDetail**: Chi tiết khách sạn với tabs, image gallery, reviews
@@ -1393,6 +1532,7 @@ Lưu vào booking_transactions:
 ### Backend Services
 
 #### Core Services
+
 - **AuthService**: Xử lý đăng ký, đăng nhập, OTP, OAuth2
 - **HotelService**: Quản lý khách sạn, tìm kiếm, filter
 - **RoomsService**: Quản lý phòng, cập nhật giá, status, discount
@@ -1409,6 +1549,7 @@ Lưu vào booking_transactions:
 - **CloudinaryService**: Upload ảnh lên Cloudinary
 
 #### Utilities
+
 - **HttpResponseUtil**: Standardized API response format
 - **CustomOAuth2UserService**: Xử lý OAuth2 user từ Google
 - **JwtTokenProvider**: Tạo và validate JWT token
@@ -1417,7 +1558,8 @@ Lưu vào booking_transactions:
 
 ## 🚨 Lưu ý quan trọng
 
-1. **Environment Variables**: 
+1. **Environment Variables**:
+
    - Hệ thống sử dụng environment variables để bảo mật thông tin nhạy cảm
    - Tất cả các giá trị nhạy cảm (passwords, API keys) nên được set qua environment variables
    - Xem chi tiết trong phần [Cấu hình môi trường](#cấu-hình-môi-trường) ở trên
@@ -1426,7 +1568,8 @@ Lưu vào booking_transactions:
 
 2. **Database Setup**: Chạy `setup.sql` trước khi chạy ứng dụng lần đầu
 
-3. **File Uploads**: 
+3. **File Uploads**:
+
    - QR codes được lưu tại `uploads/qr/`
    - Cần cấu hình static resource handler trong Spring Boot
 
@@ -1444,4 +1587,3 @@ Nếu có thắc mắc hoặc cần hỗ trợ, vui lòng liên hệ qua trang C
 
 **Phiên bản:** 1.0.0  
 **Cập nhật lần cuối:** 2024
-
