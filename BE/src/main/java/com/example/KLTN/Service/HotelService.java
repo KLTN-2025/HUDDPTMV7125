@@ -13,6 +13,7 @@ import com.example.KLTN.Service.Impl.HotelServiceImpl;
 import com.example.KLTN.dto.Apireponsi;
 import com.example.KLTN.dto.HotelFilterRequest;
 import com.example.KLTN.dto.HotelPageResponse;
+import com.example.KLTN.dto.PageResponse;
 import com.example.KLTN.dto.hotelDto;
 import com.example.KLTN.dto.roomsDto;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +86,11 @@ public class HotelService implements HotelServiceImpl {
             hotel.setPhone(dto.getPhone());
             hotel.setStatus(HotelEntity.Status.pending);
             hotel.setDeleted(false);
+            // Set latitude and longitude if provided
+            if (dto.getLatitude() != null && dto.getLongitude() != null) {
+                hotel.setLatitude(dto.getLatitude());
+                hotel.setLongitude(dto.getLongitude());
+            }
             
             // Lưu hotel trước để có ID
             this.saveHotel(hotel);
@@ -107,6 +113,11 @@ public class HotelService implements HotelServiceImpl {
 
             if (dto.getRooms() == null || dto.getRooms().isEmpty()) {
                 return httpResponseUtil.notFound("Danh sách phòng không được để trống");
+            }
+            
+            // Kiểm tra số lượng phòng phải >= 2
+            if (dto.getRooms().size() < 2) {
+                return httpResponseUtil.badRequest("Khách sạn phải có ít nhất 2 phòng");
             }
 
             // Kiểm tra số lượng ảnh phòng (có thể là file hoặc URL)
@@ -194,11 +205,23 @@ public class HotelService implements HotelServiceImpl {
             if (hotel.getStatus().equals(HotelEntity.Status.pending)) {
                 return httpResponseUtil.notFound("Hotel Chưa được phép kinh doanh");
             }
+            
+            // Kiểm tra số lượng phòng hiện tại phải >= 2
+            List<RoomsEntity> currentRooms = roomsRepository.findActiveRoomsByHotelId(hotel.getId());
+            if (currentRooms == null || currentRooms.size() < 2) {
+                return httpResponseUtil.badRequest("Khách sạn phải có ít nhất 2 phòng. Hiện tại khách sạn có " + 
+                    (currentRooms == null ? 0 : currentRooms.size()) + " phòng.");
+            }
 
             hotel.setName(dto.getName());
             hotel.setDescription(dto.getDescription());
             hotel.setAddress(dto.getAddress());
             hotel.setPhone(dto.getPhone());
+            // Cập nhật latitude and longitude if provided
+            if (dto.getLatitude() != null && dto.getLongitude() != null) {
+                hotel.setLatitude(dto.getLatitude());
+                hotel.setLongitude(dto.getLongitude());
+            }
             
             // Cập nhật ảnh: ưu tiên imageUrls (nhiều ảnh), sau đó imageUrl (1 ảnh), cuối cùng là file
             List<String> newImageUrls = new ArrayList<>();
@@ -302,6 +325,11 @@ public class HotelService implements HotelServiceImpl {
             if (minPrice != null && minPrice > 0) {
                 hotel.setMinPrice(minPrice);
             }
+            
+            // Set booking count cho hotel
+            Long bookingCount = bookingRepository.countBookingsByHotelId(hotel.getId());
+            hotel.setBookingCount(bookingCount != null ? bookingCount : 0L);
+            
             return httpResponseUtil.ok("Hotel", hotel);
         } catch (Exception e) {
             return httpResponseUtil.error("Erorr", e);
@@ -332,6 +360,16 @@ public class HotelService implements HotelServiceImpl {
             if (hotel.getOwner() == null || !hotel.getOwner().getId().equals(owner.getId())) {
                 return httpResponseUtil.badRequest("Bạn không có quyền xóa khách sạn này");
             }
+            
+            // Kiểm tra xem hotel có booking không (chỉ tính PENDING và PAID)
+            Long bookingCount = bookingRepository.countBookingsByHotelId(hotel.getId());
+            if (bookingCount != null && bookingCount > 0) {
+                return httpResponseUtil.badRequest(
+                    "Không thể xóa khách sạn này vì đã có " + bookingCount + 
+                    " đặt phòng. Vui lòng đợi đến khi tất cả đặt phòng hoàn tất hoặc đã hủy."
+                );
+            }
+            
             hotel.setDeleted(true);
             List<RoomsEntity> hotelRooms = hotel.getRooms();
             if (hotelRooms == null || hotelRooms.isEmpty()) {
@@ -678,7 +716,7 @@ public class HotelService implements HotelServiceImpl {
             
             List<HotelEntity> hotels = hotelRepository.findByOwnerId(owner.getId());
             
-            // Set minPrice cho mỗi hotel
+            // Set minPrice và bookingCount cho mỗi hotel
             if (!hotels.isEmpty()) {
                 List<Long> hotelIds = hotels.stream()
                         .map(HotelEntity::getId)
@@ -703,10 +741,82 @@ public class HotelService implements HotelServiceImpl {
                     if (minPrice != null) {
                         hotel.setMinPrice(minPrice);
                     }
+                    // Set booking count
+                    Long bookingCount = bookingRepository.countBookingsByHotelId(hotel.getId());
+                    hotel.setBookingCount(bookingCount != null ? bookingCount : 0L);
                 }
             }
             
             return httpResponseUtil.ok("Get my hotels success", hotels);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting my hotels", e);
+        }
+    }
+
+    /**
+     * Lấy hotels của owner với pagination
+     */
+    public ResponseEntity<Apireponsi<PageResponse<HotelEntity>>> getMyHotelsPaginated(Integer page, Integer size) {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+            
+            String username = auth.getName();
+            UsersEntity owner = userService.FindByUsername(username);
+            if (owner == null) {
+                return httpResponseUtil.notFound("Owner not found");
+            }
+            
+            int pageNumber = (page != null && page >= 0) ? page : 0;
+            int pageSize = (size != null && size > 0) ? size : 10;
+            Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+            
+            Page<HotelEntity> hotelPage = hotelRepository.findByOwnerId(owner.getId(), pageable);
+            
+            // Set minPrice cho mỗi hotel
+            if (!hotelPage.getContent().isEmpty()) {
+                List<Long> hotelIds = hotelPage.getContent().stream()
+                        .map(HotelEntity::getId)
+                        .toList();
+                List<Object[]> priceResults = hotelRepository.findMinPricesByHotelIds(hotelIds);
+                Map<Long, Double> priceMap = new HashMap<>();
+                for (Object[] result : priceResults) {
+                    try {
+                        if (result != null && result.length >= 2) {
+                            Long hotelId = ((Number) result[0]).longValue();
+                            Double minPrice = ((Number) result[1]).doubleValue();
+                            if (hotelId != null && minPrice != null && minPrice > 0) {
+                                priceMap.put(hotelId, minPrice);
+                            }
+                        }
+                    } catch (Exception ex) {
+                        System.err.println("Error parsing price result: " + ex.getMessage());
+                    }
+                }
+                for (HotelEntity hotel : hotelPage.getContent()) {
+                    Double minPrice = priceMap.get(hotel.getId());
+                    if (minPrice != null) {
+                        hotel.setMinPrice(minPrice);
+                    }
+                    // Set booking count
+                    Long bookingCount = bookingRepository.countBookingsByHotelId(hotel.getId());
+                    hotel.setBookingCount(bookingCount != null ? bookingCount : 0L);
+                }
+            }
+            
+            PageResponse<HotelEntity> pageResponse = new PageResponse<>(
+                hotelPage.getContent(),
+                hotelPage.getTotalPages(),
+                hotelPage.getTotalElements(),
+                hotelPage.getNumber(),
+                hotelPage.getSize(),
+                hotelPage.hasNext(),
+                hotelPage.hasPrevious()
+            );
+            
+            return httpResponseUtil.ok("Get my hotels success", pageResponse);
         } catch (Exception e) {
             return httpResponseUtil.error("Error getting my hotels", e);
         }
@@ -732,12 +842,51 @@ public class HotelService implements HotelServiceImpl {
     }
 
     /**
+     * Lấy danh sách hotels đang chờ duyệt với pagination - chỉ admin
+     */
+    public ResponseEntity<Apireponsi<PageResponse<HotelEntity>>> getPendingHotelsPaginated(String search, Integer page, Integer size) {
+        try {
+            int pageNumber = (page != null && page >= 0) ? page : 0;
+            int pageSize = (size != null && size > 0) ? size : 10;
+            Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+            
+            String searchQuery = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+            Page<HotelEntity> hotelPage;
+            
+            if (searchQuery != null) {
+                hotelPage = hotelRepository.findByStatusWithSearchPageable(HotelEntity.Status.pending, searchQuery, pageable);
+            } else {
+                hotelPage = hotelRepository.findByStatusPageable(HotelEntity.Status.pending, pageable);
+            }
+            
+            // Set rooms to null để giảm response size
+            hotelPage.getContent().forEach(hotel -> hotel.setRooms(null));
+            
+            PageResponse<HotelEntity> pageResponse = new PageResponse<>(
+                hotelPage.getContent(),
+                hotelPage.getTotalPages(),
+                hotelPage.getTotalElements(),
+                hotelPage.getNumber(),
+                hotelPage.getSize(),
+                hotelPage.hasNext(),
+                hotelPage.hasPrevious()
+            );
+            
+            return httpResponseUtil.ok("Pending hotels retrieved successfully", pageResponse);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting pending hotels", e);
+        }
+    }
+
+    /**
      * Duyệt hotel (chuyển status từ pending -> success) - chỉ admin
      */
     @Transactional
     public ResponseEntity<Apireponsi<HotelEntity>> approveHotel(Long id) {
         try {
-            HotelEntity hotel = hotelRepository.findById(id).orElse(null);
+            HotelEntity hotel = hotelRepository.findById(id)
+                .filter(h -> !h.isDeleted())
+                .orElse(null);
             if (hotel == null) {
                 return httpResponseUtil.notFound("Hotel not found");
             }
@@ -758,7 +907,9 @@ public class HotelService implements HotelServiceImpl {
     @Transactional
     public ResponseEntity<Apireponsi<HotelEntity>> rejectHotel(Long id) {
         try {
-            HotelEntity hotel = hotelRepository.findById(id).orElse(null);
+            HotelEntity hotel = hotelRepository.findById(id)
+                .filter(h -> !h.isDeleted())
+                .orElse(null);
             if (hotel == null) {
                 return httpResponseUtil.notFound("Hotel not found");
             }
@@ -789,6 +940,346 @@ public class HotelService implements HotelServiceImpl {
             return httpResponseUtil.ok("All hotels retrieved successfully", allHotels);
         } catch (Exception e) {
             return httpResponseUtil.error("Error getting all hotels", e);
+        }
+    }
+
+    /**
+     * Lấy tất cả hotels với pagination - chỉ admin
+     */
+    public ResponseEntity<Apireponsi<PageResponse<HotelEntity>>> getAllHotelsForAdminPaginated(String search, Integer page, Integer size) {
+        try {
+            int pageNumber = (page != null && page >= 0) ? page : 0;
+            int pageSize = (size != null && size > 0) ? size : 10;
+            Pageable pageable = PageRequest.of(pageNumber, pageSize, Sort.by(Sort.Direction.DESC, "id"));
+            
+            String searchQuery = (search != null && !search.trim().isEmpty()) ? search.trim() : null;
+            Page<HotelEntity> hotelPage;
+            
+            if (searchQuery != null) {
+                hotelPage = hotelRepository.findAllNotDeletedWithSearch(searchQuery, pageable);
+            } else {
+                hotelPage = hotelRepository.findAllNotDeleted(pageable);
+            }
+            
+            // Set rooms to null để giảm response size
+            hotelPage.getContent().forEach(hotel -> hotel.setRooms(null));
+            
+            PageResponse<HotelEntity> pageResponse = new PageResponse<>(
+                hotelPage.getContent(),
+                hotelPage.getTotalPages(),
+                hotelPage.getTotalElements(),
+                hotelPage.getNumber(),
+                hotelPage.getSize(),
+                hotelPage.hasNext(),
+                hotelPage.hasPrevious()
+            );
+            
+            return httpResponseUtil.ok("All hotels retrieved successfully", pageResponse);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting all hotels", e);
+        }
+    }
+
+    /**
+     * Admin tạo hotel mới - chỉ admin
+     */
+    @Transactional
+    public ResponseEntity<Apireponsi<HotelEntity>> createHotelForAdmin(hotelDto dto, MultipartFile hotelImage, List<MultipartFile> roomsImage, Long ownerId) {
+        try {
+            // 1. Kiểm tra xác thực admin
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser")) {
+                return httpResponseUtil.badRequest("User not authenticated");
+            }
+
+            // 2. Lấy owner (nếu có ownerId, nếu không thì để null - admin tự quản lý)
+            UsersEntity owner = null;
+            if (ownerId != null) {
+                owner = userService.findById(ownerId);
+                if (owner == null) {
+                    return httpResponseUtil.notFound("Owner not found");
+                }
+            }
+
+            // 3. Kiểm tra hình ảnh khách sạn
+            List<String> hotelImageUrls = new ArrayList<>();
+            
+            if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+                hotelImageUrls = dto.getImageUrls();
+            } else if (dto.getImageUrl() != null && !dto.getImageUrl().isEmpty()) {
+                hotelImageUrls.add(dto.getImageUrl());
+            } else if (hotelImage != null && !hotelImage.isEmpty()) {
+                String savedUrl = image.saveFile(hotelImage);
+                hotelImageUrls.add(savedUrl);
+            } else {
+                return httpResponseUtil.badRequest("Hotel images are required (either files or URLs)");
+            }
+            
+            // 4. Tạo HotelEntity
+            HotelEntity hotel = new HotelEntity();
+            hotel.setAddress(dto.getAddress());
+            hotel.setName(dto.getName());
+            hotel.setDescription(dto.getDescription());
+            hotel.setOwner(owner);
+            hotel.setImage(hotelImageUrls.isEmpty() ? null : hotelImageUrls.get(0));
+            hotel.setPhone(dto.getPhone());
+            hotel.setStatus(HotelEntity.Status.success); // Admin tạo thì tự động approve
+            hotel.setDeleted(false);
+            // Set latitude and longitude if provided
+            if (dto.getLatitude() != null && dto.getLongitude() != null) {
+                hotel.setLatitude(dto.getLatitude());
+                hotel.setLongitude(dto.getLongitude());
+            }
+            
+            // Lưu hotel trước để có ID
+            this.saveHotel(hotel);
+            
+            // 5. Tạo và lưu các HotelImageEntity
+            List<HotelImageEntity> hotelImages = new ArrayList<>();
+            for (int i = 0; i < hotelImageUrls.size(); i++) {
+                HotelImageEntity hotelImageEntity = new HotelImageEntity();
+                hotelImageEntity.setImageUrl(hotelImageUrls.get(i));
+                hotelImageEntity.setHotel(hotel);
+                hotelImageEntity.setDisplayOrder(i);
+                hotelImageEntity.setDeleted(false);
+                hotelImages.add(hotelImageEntity);
+            }
+            hotelImageRepository.saveAll(hotelImages);
+            hotel.setImages(hotelImages);
+
+            // 6. Xử lý danh sách phòng
+            List<RoomsEntity> roomEntities = new ArrayList<>();
+
+            if (dto.getRooms() == null || dto.getRooms().isEmpty()) {
+                return httpResponseUtil.notFound("Danh sách phòng không được để trống");
+            }
+            
+            // Kiểm tra số lượng phòng phải >= 2
+            if (dto.getRooms().size() < 2) {
+                return httpResponseUtil.badRequest("Khách sạn phải có ít nhất 2 phòng");
+            }
+
+            boolean useImageUrls = dto.getRooms().stream().anyMatch(room -> room.getImageUrl() != null && !room.getImageUrl().isEmpty());
+            boolean useImageFiles = roomsImage != null && !roomsImage.isEmpty();
+            
+            if (!useImageUrls && !useImageFiles) {
+                return httpResponseUtil.badRequest("Room images are required (either files or URLs)");
+            }
+
+            for (int i = 0; i < dto.getRooms().size(); i++) {
+                roomsDto roomDto = dto.getRooms().get(i);
+                String roomImageUrl = null;
+                
+                if (useImageUrls) {
+                    // Sử dụng URL từ Cloudinary
+                    roomImageUrl = roomDto.getImageUrl();
+                    if (roomImageUrl == null || roomImageUrl.isEmpty()) {
+                        return httpResponseUtil.badRequest("Room image URL is required for room " + (i + 1));
+                    }
+                } else if (useImageFiles && i < roomsImage.size()) {
+                    // Sử dụng file upload truyền thống
+                    MultipartFile roomImage = roomsImage.get(i);
+                    if (roomImage == null || roomImage.isEmpty()) {
+                        return httpResponseUtil.badRequest("Room image file is required for room " + (i + 1));
+                    }
+                    roomImageUrl = image.saveFile(roomImage);
+                } else {
+                    return httpResponseUtil.badRequest("Room image is required for room " + (i + 1));
+                }
+                
+                RoomsEntity room = new RoomsEntity();
+                room.setHotel(hotel);
+                room.setType(RoomsEntity.RoomType.STANDARD);
+                room.setPrice(roomDto.getPrice());
+                room.setStatus(RoomsEntity.Status.AVAILABLE);
+                room.setNumber(roomDto.getNumber());
+                room.setDiscountPercent(0.0);
+                room.setImage(roomImageUrl);
+                room.setCapacity(0);
+                room.setDeleted(false);
+                roomEntities.add(room);
+            }
+
+            roomsRepository.saveAll(roomEntities);
+            hotel.setRooms(roomEntities);
+            
+            return httpResponseUtil.ok("Hotel created successfully by admin", hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error creating hotel", e);
+        }
+    }
+
+    /**
+     * Admin cập nhật hotel - chỉ admin
+     */
+    @Transactional
+    public ResponseEntity<Apireponsi<HotelEntity>> updateHotelForAdmin(Long id, updateHotelDto dto, MultipartFile hotelImage, Long ownerId) {
+        try {
+            // Tìm hotel (bao gồm cả pending)
+            HotelEntity hotel = hotelRepository.findById(id)
+                .filter(h -> !h.isDeleted())
+                .orElse(null);
+            
+            if (hotel == null) {
+                return httpResponseUtil.notFound("Hotel not found");
+            }
+            
+            // Kiểm tra số lượng phòng hiện tại phải >= 2
+            List<RoomsEntity> currentRooms = roomsRepository.findActiveRoomsByHotelId(hotel.getId());
+            if (currentRooms == null || currentRooms.size() < 2) {
+                return httpResponseUtil.badRequest("Khách sạn phải có ít nhất 2 phòng. Hiện tại khách sạn có " + 
+                    (currentRooms == null ? 0 : currentRooms.size()) + " phòng.");
+            }
+
+            // Cập nhật thông tin cơ bản
+            hotel.setName(dto.getName());
+            hotel.setDescription(dto.getDescription());
+            hotel.setAddress(dto.getAddress());
+            hotel.setPhone(dto.getPhone());
+            // Cập nhật latitude and longitude if provided
+            if (dto.getLatitude() != null && dto.getLongitude() != null) {
+                hotel.setLatitude(dto.getLatitude());
+                hotel.setLongitude(dto.getLongitude());
+            }
+            
+            // Cập nhật owner nếu có
+            if (ownerId != null) {
+                UsersEntity owner = userService.findById(ownerId);
+                if (owner == null) {
+                    return httpResponseUtil.notFound("Owner not found");
+                }
+                hotel.setOwner(owner);
+            }
+            
+            // Cập nhật ảnh
+            List<String> newImageUrls = new ArrayList<>();
+            if (dto.getImageUrls() != null && !dto.getImageUrls().isEmpty()) {
+                newImageUrls = dto.getImageUrls();
+            } else if (dto.getImageUrl() != null && !dto.getImageUrl().isEmpty()) {
+                newImageUrls.add(dto.getImageUrl());
+            } else if (hotelImage != null && !hotelImage.isEmpty()) {
+                String savedUrl = image.updateFile(hotel.getImage(), hotelImage);
+                newImageUrls.add(savedUrl);
+            }
+            
+            // Nếu có ảnh mới, cập nhật danh sách ảnh
+            if (!newImageUrls.isEmpty()) {
+                // Xóa các ảnh cũ (soft delete)
+                List<HotelImageEntity> oldImages = hotelImageRepository.findActiveImagesByHotelId(hotel.getId());
+                for (HotelImageEntity oldImage : oldImages) {
+                    oldImage.setDeleted(true);
+                }
+                hotelImageRepository.saveAll(oldImages);
+                
+                // Tạo các ảnh mới
+                List<HotelImageEntity> newImages = new ArrayList<>();
+                for (int i = 0; i < newImageUrls.size(); i++) {
+                    HotelImageEntity hotelImageEntity = new HotelImageEntity();
+                    hotelImageEntity.setImageUrl(newImageUrls.get(i));
+                    hotelImageEntity.setHotel(hotel);
+                    hotelImageEntity.setDisplayOrder(i);
+                    hotelImageEntity.setDeleted(false);
+                    newImages.add(hotelImageEntity);
+                }
+                hotelImageRepository.saveAll(newImages);
+                hotel.setImages(newImages);
+                
+                // Cập nhật ảnh đầu tiên vào trường image cũ (backward compatibility)
+                hotel.setImage(newImageUrls.get(0));
+            }
+            
+            this.saveHotel(hotel);
+            return httpResponseUtil.ok("Hotel updated successfully by admin", hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error updating hotel", e);
+        }
+    }
+
+    /**
+     * Admin xóa hotel (soft delete) - chỉ admin
+     */
+    @Transactional
+    public ResponseEntity<Apireponsi<HotelEntity>> deleteHotelForAdmin(Long id) {
+        try {
+            // Tìm hotel (bao gồm cả pending)
+            HotelEntity hotel = hotelRepository.findById(id)
+                .filter(h -> !h.isDeleted())
+                .orElse(null);
+            
+            if (hotel == null) {
+                return httpResponseUtil.notFound("Hotel not found");
+            }
+            
+            hotel.setDeleted(true);
+            List<RoomsEntity> hotelRooms = hotel.getRooms();
+            if (hotelRooms == null || hotelRooms.isEmpty()) {
+                hotelRooms = roomsRepository.findActiveRoomsByHotelId(hotel.getId());
+                hotel.setRooms(hotelRooms);
+            }
+            if (hotelRooms != null) {
+                hotelRooms.forEach(room -> room.setDeleted(true));
+            }
+            this.saveHotel(hotel);
+            return httpResponseUtil.ok("Hotel deleted successfully by admin", hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error deleting hotel", e);
+        }
+    }
+
+    /**
+     * Admin xem chi tiết hotel - chỉ admin (bao gồm cả pending)
+     */
+    public ResponseEntity<Apireponsi<HotelEntity>> getHotelByIdForAdmin(Long id) {
+        try {
+            HotelEntity hotel = hotelRepository.findById(id)
+                .filter(h -> !h.isDeleted())
+                .orElse(null);
+            
+            if (hotel == null) {
+                return httpResponseUtil.notFound("Hotel not found");
+            }
+            
+            // Load rooms cho hotel detail
+            List<RoomsEntity> rooms = roomsRepository.findActiveRoomsByHotelId(hotel.getId());
+            hotel.setRooms(rooms);
+            
+            // Set minPrice cho hotel
+            Double minPrice = hotelRepository.findMinPriceByHotelId(hotel.getId());
+            if (minPrice != null && minPrice > 0) {
+                hotel.setMinPrice(minPrice);
+            }
+            
+            return httpResponseUtil.ok("Hotel retrieved successfully", hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error getting hotel", e);
+        }
+    }
+
+    /**
+     * Admin khóa/mở khóa hotel
+     */
+    @Transactional
+    public ResponseEntity<Apireponsi<HotelEntity>> toggleLockHotel(Long id) {
+        try {
+            HotelEntity hotel = hotelRepository.findById(id)
+                .filter(h -> !h.isDeleted())
+                .orElse(null);
+            
+            if (hotel == null) {
+                return httpResponseUtil.notFound("Hotel not found");
+            }
+            
+            // Toggle lock status
+            hotel.setLocked(!hotel.isLocked());
+            this.saveHotel(hotel);
+            
+            String message = hotel.isLocked() 
+                ? "Khóa khách sạn thành công. Khách sạn sẽ không hiển thị cho người dùng." 
+                : "Mở khóa khách sạn thành công. Khách sạn sẽ hiển thị lại cho người dùng.";
+            
+            return httpResponseUtil.ok(message, hotel);
+        } catch (Exception e) {
+            return httpResponseUtil.error("Error toggling lock hotel", e);
         }
     }
 }

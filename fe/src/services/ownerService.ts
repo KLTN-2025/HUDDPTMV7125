@@ -15,6 +15,8 @@ export interface CreateHotelData {
   imageUrl?: string // URL from Cloudinary (deprecated, use imageUrls)
   imageUrls?: string[] // List of URLs from Cloudinary
   rooms: CreateHotelRoom[]
+  latitude?: number
+  longitude?: number
 }
 
 export interface UpdateHotelData {
@@ -24,6 +26,8 @@ export interface UpdateHotelData {
   description?: string
   imageUrl?: string // URL from Cloudinary (deprecated, use imageUrls)
   imageUrls?: string[] // List of URLs from Cloudinary
+  latitude?: number
+  longitude?: number
 }
 
 export interface UpdateRoomData {
@@ -144,9 +148,22 @@ export const ownerService = {
     return response.data
   },
 
+  deleteRoom: async (roomId: number) => {
+    const response = await api.delete<ApiResponse<Room>>(`/rooms/${roomId}`)
+    return response.data
+  },
+
   // Get my hotels
   getMyHotels: async () => {
     const response = await api.get<ApiResponse<Hotel[]>>('/hotels/owner/my-hotels')
+    return response.data
+  },
+
+  getMyHotelsPaginated: async (page?: number, size?: number) => {
+    const params: Record<string, number> = {}
+    if (page !== undefined) params.page = page
+    if (size !== undefined) params.size = size
+    const response = await api.get<ApiResponse<PageResponse<Hotel>>>('/hotels/owner/my-hotels/paginated', { params })
     return response.data
   },
 

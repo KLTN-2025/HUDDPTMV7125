@@ -49,6 +49,14 @@ public class TransactionController {
         return booking_transactionsService.getMyTransactions();
     }
     
+    @GetMapping("/owner/my-transactions/paginated")
+    @PreAuthorize("hasRole('OWNER')")
+    public ResponseEntity<Apireponsi<com.example.KLTN.dto.PageResponse<Booking_transactionsEntity>>> getMyTransactionsPaginated(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return booking_transactionsService.getMyTransactionsPaginated(page, size);
+    }
+    
     @GetMapping("/revenue/admin")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Apireponsi<RevenueSummaryDTO>> getAdminRevenue() {

@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react'
 import { motion } from 'framer-motion'
-import { Pie } from '@ant-design/charts'
 import { adminService } from '../services'
-import type { AdminPercent, BookingTransaction, WithdrawRequest, PendingHotel, RevenueSummary, User, UserStats, HotelReview } from '../services/adminService'
+import type { AdminPercent, BookingTransaction, WithdrawRequest, PendingHotel, RevenueSummary, User, UserStats, HotelReview, CreateHotelRoom } from '../services/adminService'
 import { ownerService } from '../services'
 import Header from '../components/Header'
 import AppModal from '../components/AppModal'
@@ -12,12 +11,15 @@ import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import { useDebounce } from '../hooks/useDebounce'
 import AdminPercentForm, { type AdminPercentFormData } from '../components/AdminPercentForm'
+import HotelForm, { type HotelFormData } from '../components/HotelForm'
+import type { CreateHotelData, UpdateHotelData } from '../services/adminService'
+import cloudinaryService from '../utils/cloudinaryService'
+import { geocodingService } from '../services/geocodingService'
 
 // Memoized components để tránh re-render không cần thiết
-const TransactionRow = memo(({ transaction, index, onApprove }: { 
+const TransactionRow = memo(({ transaction, index }: { 
   transaction: BookingTransaction
   index: number
-  onApprove: (id: number) => void
 }) => (
   <motion.tr
     initial={{ opacity: 0, x: -20 }}
@@ -70,14 +72,7 @@ const TransactionRow = memo(({ transaction, index, onApprove }: {
       </span>
     </td>
     <td className="px-2 sm:px-4 py-2 sm:py-3">
-      {transaction.status === 'PENDING' && (
-        <button
-          onClick={() => onApprove(transaction.id)}
-          className="bg-green-600 text-white px-2 sm:px-3 py-1 rounded text-xs hover:bg-green-700 transition whitespace-nowrap"
-        >
-          Duyệt
-        </button>
-      )}
+      {/* Chức năng duyệt đã bị vô hiệu hóa - tiền đã được tự động chia khi thanh toán */}
     </td>
   </motion.tr>
 ))
@@ -174,12 +169,13 @@ const TabsNavigation = memo(({
   pendingHotelsCount 
 }: { 
   activeTab: string
-  setActiveTab: (tab: 'overview' | 'hotels' | 'transactions' | 'withdraws' | 'settings' | 'revenue' | 'users' | 'reviews') => void
+  setActiveTab: (tab: 'overview' | 'pending-hotels' | 'hotels' | 'transactions' | 'withdraws' | 'settings' | 'revenue' | 'users' | 'reviews') => void
   pendingHotelsCount: number
 }) => {
   const tabs = useMemo(() => [
     { id: 'overview', label: 'Tổng quan', icon: '📊' },
-    { id: 'hotels', label: 'Khách sạn', icon: '🏨' },
+    { id: 'pending-hotels', label: 'Duyệt khách sạn', icon: '⏳' },
+    { id: 'hotels', label: 'Xem khách sạn', icon: '🏨' },
     { id: 'transactions', label: 'Giao dịch', icon: '💳' },
     { id: 'withdraws', label: 'Yêu cầu rút tiền', icon: '💸' },
     { id: 'revenue', label: 'Doanh thu', icon: '💰' },
@@ -193,7 +189,7 @@ const TabsNavigation = memo(({
       {tabs.map((tab) => (
         <button
           key={tab.id}
-          onClick={() => setActiveTab(tab.id as 'overview' | 'hotels' | 'transactions' | 'withdraws' | 'settings' | 'revenue' | 'users' | 'reviews')}
+          onClick={() => setActiveTab(tab.id as 'overview' | 'pending-hotels' | 'hotels' | 'transactions' | 'withdraws' | 'settings' | 'revenue' | 'users' | 'reviews')}
           className={`flex items-center gap-2 px-3 sm:px-4 md:px-6 py-2.5 sm:py-3 md:py-4 whitespace-nowrap transition flex-shrink-0 ${
             activeTab === tab.id
               ? 'border-b-2 border-blue-600 text-blue-600 font-semibold bg-blue-50'
@@ -202,7 +198,7 @@ const TabsNavigation = memo(({
         >
           <span className="text-base sm:text-lg">{tab.icon}</span>
           <span className="text-xs sm:text-sm md:text-base">{tab.label}</span>
-          {tab.id === 'hotels' && pendingHotelsCount > 0 && (
+          {tab.id === 'pending-hotels' && pendingHotelsCount > 0 && (
             <span className="ml-1 bg-red-500 text-white text-xs rounded-full px-1.5 sm:px-2 py-0.5">
               {pendingHotelsCount}
             </span>
@@ -222,7 +218,6 @@ const TransactionsTable = memo(({
   searchQuery, 
   onSearchChange, 
   onClearSearch,
-  onApprove,
   page,
   totalPages,
   totalElements,
@@ -234,7 +229,6 @@ const TransactionsTable = memo(({
   searchQuery: string
   onSearchChange: (value: string) => void
   onClearSearch: () => void
-  onApprove: (id: number) => void
   page: number
   totalPages: number
   totalElements: number
@@ -294,7 +288,7 @@ const TransactionsTable = memo(({
                 <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold">Admin</th>
                 <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold">Owner</th>
                 <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold">Trạng thái</th>
-                <th className="px-2 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-semibold">Thao tác</th>
+                {/* Cột Thao tác đã bị loại bỏ - tiền đã được tự động chia khi thanh toán */}
               </tr>
             </thead>
             <tbody>
@@ -303,7 +297,6 @@ const TransactionsTable = memo(({
                   key={transaction.id}
                   transaction={transaction}
                   index={index}
-                  onApprove={onApprove}
                 />
               ))}
             </tbody>
@@ -493,15 +486,35 @@ const WithdrawsTable = memo(({
 WithdrawsTable.displayName = 'WithdrawsTable'
 
 const AdminDashboard = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'hotels' | 'transactions' | 'withdraws' | 'settings' | 'revenue' | 'users' | 'reviews'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'pending-hotels' | 'hotels' | 'transactions' | 'withdraws' | 'settings' | 'revenue' | 'users' | 'reviews'>('overview')
+  const [pendingHotelSearchQuery, setPendingHotelSearchQuery] = useState('')
+  const debouncedPendingHotelSearch = useDebounce(pendingHotelSearchQuery, 500)
   const [pendingHotels, setPendingHotels] = useState<PendingHotel[]>([])
+  const [pendingHotelsPage, setPendingHotelsPage] = useState(0)
+  const [pendingHotelsPageSize] = useState(10)
+  const [pendingHotelsTotalPages, setPendingHotelsTotalPages] = useState(0)
+  const [pendingHotelsTotalElements, setPendingHotelsTotalElements] = useState(0)
+  const [allHotels, setAllHotels] = useState<PendingHotel[]>([])
+  const [allHotelsPage, setAllHotelsPage] = useState(0)
+  const [allHotelsPageSize] = useState(10)
+  const [allHotelsTotalPages, setAllHotelsTotalPages] = useState(0)
+  const [allHotelsTotalElements, setAllHotelsTotalElements] = useState(0)
   const [selectedHotel, setSelectedHotel] = useState<PendingHotel | null>(null)
+  const [isHotelModalOpen, setIsHotelModalOpen] = useState(false)
+  const [isEditingHotel, setIsEditingHotel] = useState(false)
+  const [editingHotelId, setEditingHotelId] = useState<number | null>(null)
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([])
+  const [isSubmittingHotel, setIsSubmittingHotel] = useState(false)
   const [transactions, setTransactions] = useState<BookingTransaction[]>([])
   const [withdraws, setWithdraws] = useState<WithdrawRequest[]>([])
   const [adminPercent, setAdminPercent] = useState<AdminPercent | null>(null)
   const [revenue, setRevenue] = useState<RevenueSummary | null>(null)
   const [walletBalance, setWalletBalance] = useState<number | null>(null)
   const [users, setUsers] = useState<User[]>([])
+  const [usersPage, setUsersPage] = useState(0)
+  const [usersPageSize] = useState(10)
+  const [usersTotalPages, setUsersTotalPages] = useState(0)
+  const [usersTotalElements, setUsersTotalElements] = useState(0)
   const [userStats, setUserStats] = useState<UserStats | null>(null)
   const [userRoleFilter, setUserRoleFilter] = useState<'USER' | 'OWNER' | 'ALL'>('ALL')
   const [loading, setLoading] = useState(true)
@@ -701,9 +714,28 @@ const AdminDashboard = () => {
       isFetchingRef.current = true
       setLoading(true)
       
-      if (activeTab === 'hotels') {
-        const response = await adminService.getPendingHotels(debouncedHotelSearch || undefined)
-        if (response.data) setPendingHotels(response.data)
+      if (activeTab === 'pending-hotels') {
+        const response = await adminService.getPendingHotelsPaginated(debouncedPendingHotelSearch || undefined, pendingHotelsPage, pendingHotelsPageSize)
+        if (response.data) {
+          if ('content' in response.data) {
+            setPendingHotels(response.data.content)
+            setPendingHotelsTotalPages(response.data.totalPages)
+            setPendingHotelsTotalElements(response.data.totalElements)
+          } else {
+            setPendingHotels(response.data as PendingHotel[])
+          }
+        }
+      } else if (activeTab === 'hotels') {
+        const response = await adminService.getAllHotelsPaginated(debouncedHotelSearch || undefined, allHotelsPage, allHotelsPageSize)
+        if (response.data) {
+          if ('content' in response.data) {
+            setAllHotels(response.data.content)
+            setAllHotelsTotalPages(response.data.totalPages)
+            setAllHotelsTotalElements(response.data.totalElements)
+          } else {
+            setAllHotels(response.data as PendingHotel[])
+          }
+        }
       } else if (activeTab === 'transactions') {
         await fetchTransactionsPaginated(debouncedTransactionSearch || undefined, transactionsPage, transactionsPageSize)
       } else if (activeTab === 'withdraws') {
@@ -716,8 +748,16 @@ const AdminDashboard = () => {
         if (response.data) setRevenue(response.data)
       } else if (activeTab === 'users') {
         const role = userRoleFilter === 'ALL' ? undefined : userRoleFilter
-        const response = await adminService.getAllUsers(role)
-        if (response.data) setUsers(response.data)
+        const response = await adminService.getAllUsersPaginated(role, usersPage, usersPageSize)
+        if (response.data) {
+          if ('content' in response.data) {
+            setUsers(response.data.content)
+            setUsersTotalPages(response.data.totalPages)
+            setUsersTotalElements(response.data.totalElements)
+          } else {
+            setUsers(response.data as User[])
+          }
+        }
       } else if (activeTab === 'reviews') {
         await fetchReviews(debouncedReviewSearch || undefined, reviewsPage, reviewsPageSize)
       }
@@ -728,7 +768,7 @@ const AdminDashboard = () => {
       setLoading(false)
       isFetchingRef.current = false
     }
-  }, [activeTab, debouncedHotelSearch, debouncedReviewSearch, debouncedTransactionSearch, debouncedWithdrawSearch, userRoleFilter, reviewsPage, reviewsPageSize, fetchReviews, transactionsPage, transactionsPageSize, fetchTransactionsPaginated, withdrawsPage, withdrawsPageSize, fetchWithdrawsPaginated])
+  }, [activeTab, debouncedHotelSearch, debouncedPendingHotelSearch, debouncedReviewSearch, debouncedTransactionSearch, debouncedWithdrawSearch, userRoleFilter, reviewsPage, reviewsPageSize, fetchReviews, transactionsPage, transactionsPageSize, fetchTransactionsPaginated, withdrawsPage, withdrawsPageSize, fetchWithdrawsPaginated, pendingHotelsPage, pendingHotelsPageSize, allHotelsPage, allHotelsPageSize, usersPage, usersPageSize])
 
   // Reset page về 0 khi debounced search query thay đổi (sau khi debounce)
   const prevDebouncedReviewRef = useRef(debouncedReviewSearch)
@@ -756,12 +796,56 @@ const AdminDashboard = () => {
     }
   }, [debouncedWithdrawSearch, activeTab])
 
-  // Fetch data khi debounced search query thay đổi (chỉ cho hotels vì không có pagination)
+  // Reset page về 0 khi search query thay đổi
+  useEffect(() => {
+    if (activeTab === 'pending-hotels') {
+      setPendingHotelsPage(0)
+    }
+  }, [debouncedPendingHotelSearch, activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'hotels') {
+      setAllHotelsPage(0)
+    }
+  }, [debouncedHotelSearch, activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      setUsersPage(0)
+    }
+  }, [userRoleFilter, activeTab])
+
+  // Fetch data khi debounced search query thay đổi (cho pending-hotels và hotels)
+  useEffect(() => {
+    if (activeTab === 'pending-hotels') {
+      fetchData()
+    }
+  }, [debouncedPendingHotelSearch, activeTab, fetchData])
+
   useEffect(() => {
     if (activeTab === 'hotels') {
       fetchData()
     }
   }, [debouncedHotelSearch, activeTab, fetchData])
+
+  // Fetch data khi page thay đổi
+  useEffect(() => {
+    if (activeTab === 'pending-hotels') {
+      fetchData()
+    }
+  }, [pendingHotelsPage, activeTab, fetchData])
+
+  useEffect(() => {
+    if (activeTab === 'hotels') {
+      fetchData()
+    }
+  }, [allHotelsPage, activeTab, fetchData])
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchData()
+    }
+  }, [usersPage, activeTab, fetchData])
 
   // Fetch data khi page thay đổi (cho reviews, transactions, withdraws)
   // Khi search query thay đổi, page sẽ được reset về 0 và trigger fetchData ở đây
@@ -852,26 +936,7 @@ const AdminDashboard = () => {
     }
   }
 
-  const handleApproveTransaction = useCallback(async (id: number) => {
-    const confirmed = await confirm({
-      title: 'Xác nhận duyệt giao dịch',
-      message: 'Bạn có chắc chắn muốn duyệt giao dịch này?',
-      type: 'info',
-    })
-    if (!confirmed) return
-    try {
-      await adminService.setTransaction(id)
-      showSuccess('Duyệt giao dịch thành công!')
-      // Refresh transactions để cập nhật stats
-      await fetchTransactions()
-      if (activeTab === 'transactions') {
-        await fetchTransactionsPaginated(transactionsSearchQuery || undefined, transactionsPage, transactionsPageSize)
-      }
-    } catch (err: unknown) {
-      const error = err as { response?: { data?: { message?: string } } }
-      showError(error.response?.data?.message || 'Không thể duyệt giao dịch')
-    }
-  }, [confirm, showSuccess, showError, activeTab, transactionsSearchQuery, transactionsPage, transactionsPageSize, fetchTransactions, fetchTransactionsPaginated])
+  // handleApproveTransaction đã bị vô hiệu hóa - tiền đã được tự động chia khi thanh toán
 
   const handleApproveWithdraw = useCallback(async (id: number) => {
     const confirmed = await confirm({
@@ -926,18 +991,30 @@ const AdminDashboard = () => {
       setProcessingHotelId(id)
       await adminService.approveHotel(id)
       showSuccess('Đã duyệt khách sạn thành công!')
-      // Refresh cả pending hotels, transactions và withdraws
-      await Promise.all([fetchPendingHotels(), fetchTransactions(), fetchWithdraws()])
-      if (activeTab === 'hotels') {
-        fetchData()
+      
+      // Cập nhật state trực tiếp để tránh loading state
+      if (activeTab === 'pending-hotels') {
+        setPendingHotels(prev => prev.filter(hotel => hotel.id !== id))
+      } else if (activeTab === 'hotels') {
+        setAllHotels(prev => prev.map(hotel => 
+          hotel.id === id ? { ...hotel, status: 'success' as const } : hotel
+        ))
       }
+      
+      // Cập nhật pending hotels count
+      setPendingHotels(prev => prev.filter(hotel => hotel.id !== id))
+      
+      // Refresh transactions và withdraws ở background (không block UI)
+      Promise.all([fetchTransactions(), fetchWithdraws()]).catch(() => {
+        // Silently fail, không ảnh hưởng UI
+      })
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       showError(error.response?.data?.message || 'Không thể duyệt khách sạn')
     } finally {
       setProcessingHotelId(null)
     }
-  }, [confirm, showSuccess, showError, activeTab, fetchPendingHotels, fetchTransactions, fetchWithdraws, fetchData])
+  }, [confirm, showSuccess, showError, activeTab, fetchTransactions, fetchWithdraws])
 
   const handleRejectHotel = useCallback(async (id: number) => {
     const confirmed = await confirm({
@@ -950,18 +1027,57 @@ const AdminDashboard = () => {
       setProcessingHotelId(id)
       await adminService.rejectHotel(id)
       showSuccess('Đã từ chối khách sạn')
-      // Refresh pending hotels
-      await fetchPendingHotels()
-      if (activeTab === 'hotels') {
-        fetchData()
+      
+      // Cập nhật state trực tiếp để tránh loading state
+      if (activeTab === 'pending-hotels') {
+        setPendingHotels(prev => prev.filter(hotel => hotel.id !== id))
+      } else if (activeTab === 'hotels') {
+        setAllHotels(prev => prev.map(hotel => 
+          hotel.id === id ? { ...hotel, status: 'fail' as const } : hotel
+        ))
       }
+      
+      // Cập nhật pending hotels count
+      setPendingHotels(prev => prev.filter(hotel => hotel.id !== id))
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       showError(error.response?.data?.message || 'Không thể từ chối khách sạn')
     } finally {
       setProcessingHotelId(null)
     }
-  }, [confirm, showSuccess, showError, activeTab, fetchPendingHotels, fetchData])
+  }, [confirm, showSuccess, showError, activeTab])
+
+  const handleToggleLockHotel = useCallback(async (id: number, isLocked: boolean) => {
+    const confirmed = await confirm({
+      title: isLocked ? 'Xác nhận mở khóa khách sạn' : 'Xác nhận khóa khách sạn',
+      message: isLocked 
+        ? 'Bạn có chắc chắn muốn mở khóa khách sạn này? Khách sạn sẽ hiển thị lại cho người dùng.'
+        : 'Bạn có chắc chắn muốn khóa khách sạn này? Khách sạn sẽ không hiển thị cho người dùng.',
+      type: isLocked ? 'success' : 'warning',
+    })
+    if (!confirmed) return
+    try {
+      setProcessingHotelId(id)
+      await adminService.toggleLockHotel(id)
+      showSuccess(isLocked ? 'Mở khóa khách sạn thành công!' : 'Khóa khách sạn thành công!')
+      
+      // Cập nhật state trực tiếp
+      if (activeTab === 'hotels') {
+        setAllHotels(prev => prev.map(hotel => 
+          hotel.id === id ? { ...hotel, locked: !isLocked } : hotel
+        ))
+      } else if (activeTab === 'pending-hotels') {
+        setPendingHotels(prev => prev.map(hotel => 
+          hotel.id === id ? { ...hotel, locked: !isLocked } : hotel
+        ))
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      showError(error.response?.data?.message || 'Không thể khóa/mở khóa khách sạn')
+    } finally {
+      setProcessingHotelId(null)
+    }
+  }, [confirm, showSuccess, showError, activeTab])
 
   const handleUpdateUserRole = useCallback(async (userId: number, newRole: 'USER' | 'OWNER') => {
     const roleName = newRole === 'USER' ? 'Khách hàng' : 'Chủ khách sạn'
@@ -1036,6 +1152,125 @@ const AdminDashboard = () => {
     }
   }, [confirm, showSuccess, showError, activeTab, userRoleFilter, fetchUsers, fetchUserStats, fetchData])
 
+  // Hotel CRUD handlers đã bị vô hiệu hóa - admin chỉ có thể xem và khóa hotel
+
+  const handleSubmitHotel = useCallback(async (
+    data: HotelFormData, 
+    images: File[], 
+    rooms: Array<{ number: string; price: number; image: File | null; existingImageUrl?: string }>
+  ) => {
+    try {
+      setIsSubmittingHotel(true)
+      
+      // Geocode address to get latitude and longitude
+      let latitude: number | undefined
+      let longitude: number | undefined
+      try {
+        const geocodeResult = await geocodingService.geocodeAddress(data.address)
+        if (geocodeResult.status === 'OK' && geocodeResult.lat && geocodeResult.lng) {
+          latitude = geocodeResult.lat
+          longitude = geocodeResult.lng
+        } else {
+          console.warn('Geocoding failed or returned no results:', geocodeResult.error)
+        }
+      } catch (geocodeError) {
+        console.error('Geocoding error:', geocodeError)
+        // Continue without lat/lng if geocoding fails
+      }
+      
+      // Upload images to Cloudinary
+      const hotelImageUrls: string[] = []
+      const roomsImageUrls: string[] = []
+      
+      if (images.length > 0) {
+        // Upload hotel images
+        for (let i = 0; i < Math.min(images.length, 10); i++) {
+          const response = await cloudinaryService.uploadImage(images[i])
+          hotelImageUrls.push(response.secure_url)
+        }
+      }
+
+      // Upload room images (only new images, keep existing ones)
+      for (const room of rooms) {
+        if (room.image) {
+          // New image uploaded
+          const response = await cloudinaryService.uploadImage(room.image)
+          roomsImageUrls.push(response.secure_url)
+        } else if (room.existingImageUrl) {
+          // Keep existing image
+          roomsImageUrls.push(room.existingImageUrl)
+        } else {
+          roomsImageUrls.push('') // Empty string if no image
+        }
+      }
+
+      // Create room data
+      const roomsData: CreateHotelRoom[] = rooms.map((room, index) => ({
+        number: room.number,
+        price: room.price,
+        imageUrl: roomsImageUrls[index] || undefined,
+      }))
+
+      const hotelData: CreateHotelData = {
+        name: data.name,
+        address: data.address,
+        phone: data.phone,
+        description: data.description || '',
+        imageUrls: hotelImageUrls.length > 0 ? hotelImageUrls : undefined,
+        rooms: roomsData,
+        latitude: latitude,
+        longitude: longitude,
+      }
+
+      if (isEditingHotel && editingHotelId && selectedHotel) {
+        // Update hotel - merge existing images (not removed) with new images
+        const existingImageUrls: string[] = []
+        if (selectedHotel.images && selectedHotel.images.length > 0) {
+          // Only include images that were not removed
+          selectedHotel.images
+            .filter(img => !removedImageIds.includes(img.id))
+            .forEach(img => existingImageUrls.push(img.imageUrl))
+        }
+        
+        // Combine existing images (not removed) with new images
+        const allImageUrls = [...existingImageUrls, ...hotelImageUrls]
+        
+        const updateData: UpdateHotelData = {
+          name: data.name,
+          address: data.address,
+          phone: data.phone,
+          description: data.description || '',
+          imageUrls: allImageUrls.length > 0 ? allImageUrls : undefined,
+          latitude: latitude,
+          longitude: longitude,
+        }
+        
+        // Note: Backend should handle geocoding on update, but we can also send lat/lng if available
+        await adminService.updateHotel(editingHotelId, updateData, allImageUrls.length > 0 ? allImageUrls : undefined)
+        showSuccess('Cập nhật khách sạn thành công!')
+        setRemovedImageIds([]) // Reset removed images after successful update
+      } else {
+        // Create hotel - backend will handle geocoding, but we can also send lat/lng if available
+        await adminService.createHotel(hotelData, hotelImageUrls, roomsImageUrls)
+        showSuccess('Tạo khách sạn thành công!')
+      }
+
+      setIsHotelModalOpen(false)
+      setIsEditingHotel(false)
+      setEditingHotelId(null)
+      setSelectedHotel(null)
+      if (activeTab === 'hotels') {
+        fetchData()
+      }
+      await fetchPendingHotels()
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      showError(error.response?.data?.message || 'Không thể lưu khách sạn')
+    } finally {
+      setIsSubmittingHotel(false)
+    }
+  }, [isEditingHotel, editingHotelId, selectedHotel, removedImageIds, showSuccess, showError, activeTab, fetchData, fetchPendingHotels])
+
   // Memoize computed values để tránh re-compute không cần thiết
   const pendingTransactionsCount = useMemo(() => {
     return transactions.filter(t => t.status === 'PENDING').length
@@ -1066,20 +1301,6 @@ const AdminDashboard = () => {
     },
   ], [pendingHotels.length, transactions.length, pendingTransactionsCount, pendingWithdrawsCount, walletBalance])
 
-  // Memoize pie chart data
-  const pieChartData = useMemo(() => {
-    if (!revenue) return null
-    return [
-      { type: 'Admin', value: Number(revenue.adminRevenue) },
-      { type: 'Owners', value: Number(revenue.ownerRevenue) },
-    ]
-  }, [revenue])
-
-  const hasPieChartData = useMemo(() => {
-    if (!revenue) return false
-    return Number(revenue.adminRevenue) > 0 || Number(revenue.ownerRevenue) > 0
-  }, [revenue])
-
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -1108,32 +1329,32 @@ const AdminDashboard = () => {
 
           {/* Tab Content */}
           <div className="p-4 md:p-6">
-            {activeTab === 'hotels' && (
+            {activeTab === 'pending-hotels' && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 className="space-y-6"
               >
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4">
-                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Khách sạn chờ duyệt</h2>
+                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Duyệt khách sạn</h2>
                   <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
                     <input
                       type="text"
-                      value={hotelSearchQuery}
-                      onChange={(e) => setHotelSearchQuery(e.target.value)}
+                      value={pendingHotelSearchQuery}
+                      onChange={(e) => setPendingHotelSearchQuery(e.target.value)}
                       placeholder="Tìm kiếm khách sạn..."
                       className="flex-1 sm:w-48 md:w-64 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-xs sm:text-sm"
                     />
-                    {hotelSearchQuery && (
+                    {pendingHotelSearchQuery && (
                       <button
-                        onClick={() => setHotelSearchQuery('')}
+                        onClick={() => setPendingHotelSearchQuery('')}
                         className="bg-gray-200 text-gray-700 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-300 transition text-sm flex-shrink-0"
                       >
                         ✕
                       </button>
                     )}
                     <span className="px-2 sm:px-3 py-2 bg-yellow-100 text-yellow-700 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap">
-                      {pendingHotels.length} khách sạn
+                      {pendingHotelsTotalElements > 0 ? pendingHotelsTotalElements : pendingHotels.length} khách sạn chờ duyệt
                     </span>
                   </div>
                 </div>
@@ -1205,10 +1426,226 @@ const AdminDashboard = () => {
                             >
                               <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
                             </button>
+                            <button
+                              onClick={() => handleToggleLockHotel(hotel.id, hotel.locked || false)}
+                              disabled={processingHotelId === hotel.id}
+                              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
+                                hotel.locked
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                              title={hotel.locked ? 'Mở khóa khách sạn' : 'Khóa khách sạn'}
+                            >
+                              {hotel.locked ? (
+                                <Unlock className="w-3 h-3 sm:w-4 sm:h-4" />
+                              ) : (
+                                <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
+                              )}
+                            </button>
                           </div>
                         </div>
                       </motion.div>
                     ))}
+                  </div>
+                )}
+                {/* Pagination */}
+                {pendingHotelsTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-gray-600">
+                      Trang {pendingHotelsPage + 1} / {pendingHotelsTotalPages} ({pendingHotelsTotalElements} khách sạn)
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setPendingHotelsPage(0)}
+                        disabled={pendingHotelsPage === 0}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Đầu
+                      </button>
+                      <button
+                        onClick={() => setPendingHotelsPage((prev) => Math.max(0, prev - 1))}
+                        disabled={pendingHotelsPage === 0}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setPendingHotelsPage((prev) => Math.min(pendingHotelsTotalPages - 1, prev + 1))}
+                        disabled={pendingHotelsPage >= pendingHotelsTotalPages - 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Sau
+                      </button>
+                      <button
+                        onClick={() => setPendingHotelsPage(pendingHotelsTotalPages - 1)}
+                        disabled={pendingHotelsPage >= pendingHotelsTotalPages - 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Cuối
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </motion.div>
+            )}
+
+            {activeTab === 'hotels' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-6"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+                  <h2 className="text-lg sm:text-xl md:text-2xl font-bold">Xem khách sạn</h2>
+                  <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto">
+                    <input
+                      type="text"
+                      value={hotelSearchQuery}
+                      onChange={(e) => setHotelSearchQuery(e.target.value)}
+                      placeholder="Tìm kiếm khách sạn..."
+                      className="flex-1 sm:w-48 md:w-64 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition text-xs sm:text-sm"
+                    />
+                    {hotelSearchQuery && (
+                      <button
+                        onClick={() => setHotelSearchQuery('')}
+                        className="bg-gray-200 text-gray-700 px-2 sm:px-3 py-2 rounded-lg hover:bg-gray-300 transition text-sm flex-shrink-0"
+                      >
+                        ✕
+                      </button>
+                    )}
+                    <span className="px-2 sm:px-3 py-2 bg-blue-100 text-blue-700 rounded-full text-xs sm:text-sm font-semibold whitespace-nowrap">
+                      {allHotelsTotalElements > 0 ? allHotelsTotalElements : allHotels.length} khách sạn
+                    </span>
+                  </div>
+                </div>
+                {loading ? (
+                  <div className="text-center py-12">
+                    <p className="text-gray-600">Đang tải...</p>
+                  </div>
+                ) : error ? (
+                  <div className="text-center py-12">
+                    <p className="text-red-600">{error}</p>
+                  </div>
+                ) : allHotels.length === 0 ? (
+                  <div className="text-center py-12 bg-gray-50 rounded-2xl">
+                    <div className="text-6xl mb-4">🏨</div>
+                    <p className="text-gray-600 text-lg">Chưa có khách sạn nào</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+                    {allHotels.map((hotel, index) => (
+                      <motion.div
+                        key={hotel.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`bg-white rounded-2xl shadow-lg overflow-hidden border-2 transition-all ${
+                          hotel.status === 'pending' 
+                            ? 'border-yellow-200 hover:border-yellow-400' 
+                            : hotel.status === 'success'
+                            ? 'border-green-200 hover:border-green-400'
+                            : 'border-red-200 hover:border-red-400'
+                        }`}
+                      >
+                        <div className="relative h-48 overflow-hidden">
+                          <img
+                            src={hotel.images && hotel.images.length > 0 ? hotel.images[0].imageUrl : hotel.image || 'https://via.placeholder.com/400'}
+                            alt={hotel.name}
+                            className="w-full h-full object-cover"
+                          />
+                          <div className={`absolute top-3 right-3 px-3 py-1 rounded-full text-xs font-bold text-white ${
+                            hotel.status === 'pending' 
+                              ? 'bg-yellow-500' 
+                              : hotel.status === 'success'
+                              ? 'bg-green-500'
+                              : 'bg-red-500'
+                          }`}>
+                            {hotel.status === 'pending' ? 'Chờ duyệt' : hotel.status === 'success' ? 'Đã duyệt' : 'Từ chối'}
+                          </div>
+                        </div>
+                        <div className="p-5">
+                          <h3 className="text-lg font-bold text-gray-900 mb-2 line-clamp-1">{hotel.name}</h3>
+                          <p className="text-sm text-gray-600 mb-3 line-clamp-2">{hotel.address}</p>
+                          {hotel.owner && (
+                            <p className="text-xs text-gray-500 mb-3">
+                              Chủ sở hữu: <span className="font-semibold">{hotel.owner.username}</span>
+                            </p>
+                          )}
+                          {hotel.description && (
+                            <p className="text-sm text-gray-500 mb-4 line-clamp-2">{hotel.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              onClick={() => setSelectedHotel(hotel)}
+                              className="px-3 sm:px-4 py-2 sm:py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all flex items-center justify-center"
+                              aria-label="View details"
+                            >
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleToggleLockHotel(hotel.id, hotel.locked || false)}
+                              disabled={processingHotelId === hotel.id}
+                              className={`px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${
+                                hotel.locked
+                                  ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+                              }`}
+                              title={hotel.locked ? 'Mở khóa khách sạn' : 'Khóa khách sạn'}
+                            >
+                              {hotel.locked ? (
+                                <>
+                                  <Unlock className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  <span className="text-xs sm:text-sm hidden sm:inline">Mở khóa</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="w-3 h-3 sm:w-4 sm:h-4" />
+                                  <span className="text-xs sm:text-sm hidden sm:inline">Khóa</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+                {/* Pagination */}
+                {allHotelsTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-gray-600">
+                      Trang {allHotelsPage + 1} / {allHotelsTotalPages} ({allHotelsTotalElements} khách sạn)
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setAllHotelsPage(0)}
+                        disabled={allHotelsPage === 0}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Đầu
+                      </button>
+                      <button
+                        onClick={() => setAllHotelsPage((prev) => Math.max(0, prev - 1))}
+                        disabled={allHotelsPage === 0}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setAllHotelsPage((prev) => Math.min(allHotelsTotalPages - 1, prev + 1))}
+                        disabled={allHotelsPage >= allHotelsTotalPages - 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Sau
+                      </button>
+                      <button
+                        onClick={() => setAllHotelsPage(allHotelsTotalPages - 1)}
+                        disabled={allHotelsPage >= allHotelsTotalPages - 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Cuối
+                      </button>
+                    </div>
                   </div>
                 )}
               </motion.div>
@@ -1241,7 +1678,7 @@ const AdminDashboard = () => {
                     </p>
                     {pendingHotels.length > 0 && (
                       <button
-                        onClick={() => setActiveTab('hotels')}
+                        onClick={() => setActiveTab('pending-hotels')}
                         className="text-sm text-green-700 hover:text-green-800 font-semibold underline"
                       >
                         Xem chi tiết →
@@ -1281,7 +1718,6 @@ const AdminDashboard = () => {
                 searchQuery={transactionsSearchQuery}
                 onSearchChange={setTransactionsSearchQuery}
                 onClearSearch={() => setTransactionsSearchQuery('')}
-                onApprove={handleApproveTransaction}
                 page={transactionsPage}
                 totalPages={transactionsTotalPages}
                 totalElements={transactionsTotalElements}
@@ -1345,33 +1781,6 @@ const AdminDashboard = () => {
                         </div>
                       </div>
                     </div>
-
-                    {/* Revenue Distribution Pie Chart */}
-                    {hasPieChartData && pieChartData ? (
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                      <h3 className="text-lg font-bold mb-4">Phân bổ doanh thu</h3>
-                      <Pie
-                          data={pieChartData}
-                        angleField="value"
-                        colorField="type"
-                        radius={0.8}
-                        label={{
-                          type: 'outer',
-                          content: '{name}: {percentage}',
-                        }}
-                          interactions={[{ type: 'element-active' }]}
-                        height={300}
-                          color={['#3b82f6', '#a855f7']}
-                      />
-                    </div>
-                    ) : (
-                      <div className="bg-white rounded-xl shadow-lg p-6">
-                        <h3 className="text-lg font-bold mb-4">Phân bổ doanh thu</h3>
-                        <div className="text-center py-12 text-gray-500">
-                          <p>Chưa có dữ liệu doanh thu để hiển thị biểu đồ</p>
-                        </div>
-                      </div>
-                    )}
 
                     {/* Revenue Stats */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1635,6 +2044,44 @@ const AdminDashboard = () => {
                     </table>
                   </div>
                 )}
+                {/* Pagination */}
+                {usersTotalPages > 1 && (
+                  <div className="flex items-center justify-between mt-6">
+                    <div className="text-sm text-gray-600">
+                      Trang {usersPage + 1} / {usersTotalPages} ({usersTotalElements} tài khoản)
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setUsersPage(0)}
+                        disabled={usersPage === 0}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Đầu
+                      </button>
+                      <button
+                        onClick={() => setUsersPage((prev) => Math.max(0, prev - 1))}
+                        disabled={usersPage === 0}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Trước
+                      </button>
+                      <button
+                        onClick={() => setUsersPage((prev) => Math.min(usersTotalPages - 1, prev + 1))}
+                        disabled={usersPage >= usersTotalPages - 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Sau
+                      </button>
+                      <button
+                        onClick={() => setUsersPage(usersTotalPages - 1)}
+                        disabled={usersPage >= usersTotalPages - 1}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                      >
+                        Cuối
+                      </button>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
 
@@ -1806,8 +2253,65 @@ const AdminDashboard = () => {
       </div>
 
       {/* Hotel Detail Modal */}
+      {/* Hotel Create/Edit Modal */}
       <AppModal
-        isOpen={selectedHotel !== null}
+        isOpen={isHotelModalOpen}
+        onClose={() => {
+          setIsHotelModalOpen(false)
+          setIsEditingHotel(false)
+          setEditingHotelId(null)
+          setSelectedHotel(null)
+          setRemovedImageIds([])
+        }}
+        title={isEditingHotel ? 'Sửa khách sạn' : 'Tạo khách sạn mới'}
+        size="lg"
+      >
+        <HotelForm
+          onSubmit={handleSubmitHotel}
+          defaultValues={
+            isEditingHotel && selectedHotel
+              ? {
+                  name: selectedHotel.name,
+                  address: selectedHotel.address,
+                  phone: selectedHotel.phone,
+                  description: selectedHotel.description || '',
+                }
+              : undefined
+          }
+          existingImages={
+            isEditingHotel && selectedHotel && selectedHotel.images
+              ? selectedHotel.images.filter(img => !removedImageIds.includes(img.id))
+              : []
+          }
+          onRemoveExistingImage={(imageId: number) => {
+            setRemovedImageIds(prev => [...prev, imageId])
+          }}
+          defaultRooms={
+            isEditingHotel && selectedHotel && selectedHotel.rooms && selectedHotel.rooms.length > 0
+              ? selectedHotel.rooms.map(room => ({
+                  number: room.Number || room.number || '',
+                  price: room.price || 0,
+                  image: null, // Existing rooms don't have File objects
+                  existingImageUrl: room.imageUrl || room.image, // Keep existing image URL
+                }))
+              : [{ number: '', price: 0, image: null }]
+          }
+          showRooms={true}
+          submitLabel={isEditingHotel ? 'Cập nhật' : 'Tạo mới'}
+          isSubmitting={isSubmittingHotel}
+          onCancel={() => {
+            setIsHotelModalOpen(false)
+            setIsEditingHotel(false)
+            setEditingHotelId(null)
+            setSelectedHotel(null)
+            setRemovedImageIds([])
+          }}
+        />
+      </AppModal>
+
+      {/* Hotel Detail Modal */}
+      <AppModal
+        isOpen={selectedHotel !== null && !isHotelModalOpen}
         onClose={() => setSelectedHotel(null)}
         title={selectedHotel?.name || 'Chi tiết khách sạn'}
         size="lg"

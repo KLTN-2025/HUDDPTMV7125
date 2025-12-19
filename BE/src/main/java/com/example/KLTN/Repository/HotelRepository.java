@@ -12,13 +12,13 @@ import java.util.List;
 
 @Repository
 public interface HotelRepository extends JpaRepository<HotelEntity, Long> {
-    @Query("SELECT h FROM HotelEntity h WHERE h.status <> :status AND h.deleted = false")
+    @Query("SELECT h FROM HotelEntity h WHERE h.status <> :status AND h.deleted = false AND h.locked = false")
     List<HotelEntity> findAllHotelsNotPending(@Param("status") HotelEntity.Status status);
 
-    @Query("SELECT h FROM HotelEntity h WHERE h.status <> :status AND h.deleted = false")
+    @Query("SELECT h FROM HotelEntity h WHERE h.status <> :status AND h.deleted = false AND h.locked = false")
     Page<HotelEntity> findAllHotelsNotPending(@Param("status") HotelEntity.Status status, Pageable pageable);
 
-    @Query("SELECT h FROM HotelEntity h WHERE h.status <> :status AND h.deleted = false " +
+    @Query("SELECT h FROM HotelEntity h WHERE h.status <> :status AND h.deleted = false AND h.locked = false " +
            "AND (:minRating IS NULL OR h.rating >= :minRating) " +
            "AND (:maxRating IS NULL OR h.rating <= :maxRating) " +
            "AND (:city IS NULL OR LOWER(h.city) = LOWER(:city)) " +
@@ -33,7 +33,7 @@ public interface HotelRepository extends JpaRepository<HotelEntity, Long> {
         Pageable pageable
     );
 
-    @Query("SELECT h FROM HotelEntity h WHERE h.id = :id AND h.status <> :status AND h.deleted = false")
+    @Query("SELECT h FROM HotelEntity h WHERE h.id = :id AND h.status <> :status AND h.deleted = false AND h.locked = false")
     HotelEntity findByIdNotPending(@Param("id") Long id, @Param("status") HotelEntity.Status status);
     
     // Query để lấy min price từ rooms của hotel (ưu tiên AVAILABLE, nếu không có thì lấy tất cả)
@@ -59,6 +59,17 @@ public interface HotelRepository extends JpaRepository<HotelEntity, Long> {
            "OR LOWER(h.city) LIKE LOWER(CONCAT('%', :search, '%')))")
     List<HotelEntity> findByStatusWithSearch(@Param("status") HotelEntity.Status status, @Param("search") String search);
     
+    // Query để lấy hotels đang chờ duyệt với pagination
+    @Query("SELECT h FROM HotelEntity h WHERE h.status = :status AND h.deleted = false")
+    Page<HotelEntity> findByStatusPageable(@Param("status") HotelEntity.Status status, Pageable pageable);
+    
+    // Query để lấy hotels đang chờ duyệt với search và pagination
+    @Query("SELECT h FROM HotelEntity h WHERE h.status = :status AND h.deleted = false " +
+           "AND (:search IS NULL OR LOWER(h.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(h.address) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(h.city) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<HotelEntity> findByStatusWithSearchPageable(@Param("status") HotelEntity.Status status, @Param("search") String search, Pageable pageable);
+    
     // Query để lấy tất cả hotels với search - chỉ dùng cho admin
     @Query("SELECT h FROM HotelEntity h WHERE h.deleted = false " +
            "AND (:search IS NULL OR LOWER(h.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
@@ -66,7 +77,22 @@ public interface HotelRepository extends JpaRepository<HotelEntity, Long> {
            "OR LOWER(h.city) LIKE LOWER(CONCAT('%', :search, '%')))")
     List<HotelEntity> findAllNotDeletedWithSearch(@Param("search") String search);
     
+    // Query để lấy tất cả hotels với search và pagination - chỉ dùng cho admin
+    @Query("SELECT h FROM HotelEntity h WHERE h.deleted = false " +
+           "AND (:search IS NULL OR LOWER(h.name) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(h.address) LIKE LOWER(CONCAT('%', :search, '%')) " +
+           "OR LOWER(h.city) LIKE LOWER(CONCAT('%', :search, '%')))")
+    Page<HotelEntity> findAllNotDeletedWithSearch(@Param("search") String search, Pageable pageable);
+    
     // Query để lấy tất cả hotels (không filter status) - chỉ dùng cho admin
     @Query("SELECT h FROM HotelEntity h WHERE h.deleted = false")
     List<HotelEntity> findAllNotDeleted();
+    
+    // Query để lấy tất cả hotels với pagination - chỉ dùng cho admin
+    @Query("SELECT h FROM HotelEntity h WHERE h.deleted = false")
+    Page<HotelEntity> findAllNotDeleted(Pageable pageable);
+    
+    // Query để lấy hotels của owner với pagination
+    @Query("SELECT h FROM HotelEntity h WHERE h.owner.id = :ownerId AND h.deleted = false")
+    Page<HotelEntity> findByOwnerId(@Param("ownerId") Long ownerId, Pageable pageable);
 }

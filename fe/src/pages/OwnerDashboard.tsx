@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { Column } from '@ant-design/charts'
+import { Trash2 } from 'lucide-react'
 import { hotelService, ownerService } from '../services'
 import { bookingService } from '../services/bookingService'
 import type { Hotel, Room } from '../services/hotelService'
@@ -14,6 +15,7 @@ import HotelCard from '../components/HotelCard'
 import { useToast } from '../hooks/useToast'
 import { useConfirm } from '../hooks/useConfirm'
 import cloudinaryService from '../utils/cloudinaryService'
+import { geocodingService } from '../services/geocodingService'
 import FormattedNumberInput from '../components/FormattedNumberInput'
 import WithdrawForm, { type WithdrawFormData } from '../components/WithdrawForm'
 import RoomEditForm, { type RoomEditFormData } from '../components/RoomEditForm'
@@ -44,15 +46,12 @@ const OwnerDashboard = () => {
     description: '',
     images: [] as File[],
   })
-  type CreateHotelRoomForm = { number: string; price: string; image: File | null }
-  const [createHotelRooms, setCreateHotelRooms] = useState<CreateHotelRoomForm[]>([
-    { number: '', price: '', image: null },
-  ])
   const [createHotelSubmitting, setCreateHotelSubmitting] = useState(false)
   const [deletingHotelId, setDeletingHotelId] = useState<number | null>(null)
   const [showWithdrawModal, setShowWithdrawModal] = useState(false)
   const [bulkDiscount, setBulkDiscount] = useState('')
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
+  const [newRoomPrice, setNewRoomPrice] = useState(0)
   const { showSuccess, showError } = useToast()
   const { confirm, close, handleConfirm, confirmState } = useConfirm()
   const withdrawsSectionRef = useRef<HTMLDivElement>(null)
@@ -161,8 +160,10 @@ const OwnerDashboard = () => {
   useEffect(() => {
     if (selectedRoom) {
       fetchRoomBookings(selectedRoom.id)
+      setNewRoomPrice(0) // Reset price input when selecting a different room
     } else {
       setRoomBookings([])
+      setNewRoomPrice(0)
     }
   }, [selectedRoom, fetchRoomBookings])
 
@@ -377,7 +378,7 @@ const OwnerDashboard = () => {
     }
   }
 
-  const handleOpenEditHotel = (hotel: Hotel) => {
+  const handleOpenEditHotel = async (hotel: Hotel) => {
     setSelectedHotel(hotel)
     setHotelForm({
       name: hotel.name || '',
@@ -386,35 +387,35 @@ const OwnerDashboard = () => {
       description: hotel.description || '',
       images: [],
     })
+    
+    // Fetch hotel detail to get rooms
+    try {
+      const response = await hotelService.getHotelById(hotel.id)
+      if (response.data) {
+        setSelectedHotel(response.data)
+      }
+    } catch (error) {
+      console.error('Error fetching hotel detail:', error)
+      // Keep original hotel data if fetch fails
+    }
+    
     setShowEditHotelModal(true)
   }
 
   const resetCreateHotelForm = () => {
-    setCreateHotelRooms([{ number: '', price: '', image: null }])
-  }
-
-  const handleRoomFieldChange = (index: number, field: 'number' | 'price', value: string) => {
-    setCreateHotelRooms((prev) =>
-      prev.map((room, idx) => (idx === index ? { ...room, [field]: value } : room)),
-    )
-  }
-
-  const handleRoomImageChange = (index: number, file: File | null) => {
-    setCreateHotelRooms((prev) =>
-      prev.map((room, idx) => (idx === index ? { ...room, image: file } : room)),
-    )
-  }
-
-  const handleAddRoomField = () => {
-    setCreateHotelRooms((prev) => [...prev, { number: '', price: '', image: null }])
-  }
-
-  const handleRemoveRoomField = (index: number) => {
-    setCreateHotelRooms((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== index)))
+    // Reset is handled by HotelForm component
   }
 
 
   const handleDeleteHotel = async (hotelId: number) => {
+    const hotel = hotels.find(h => h.id === hotelId)
+    const bookingCount = hotel?.bookingCount || 0
+    
+    if (bookingCount > 0) {
+      showError(`Không thể xóa khách sạn này vì đã có ${bookingCount} đặt phòng. Vui lòng đợi đến khi tất cả đặt phòng hoàn tất hoặc đã hủy.`)
+      return
+    }
+    
     const confirmed = await confirm({
       title: 'Xác nhận xóa khách sạn',
       message: 'Bạn có chắc chắn muốn xóa khách sạn này? Hành động này không thể hoàn tác.',
@@ -443,8 +444,28 @@ const OwnerDashboard = () => {
   const handleUpdateRoomPrice = async (roomId: number, newPrice: number) => {
     try {
       await ownerService.updateRoomPrice(roomId, newPrice)
-      if (selectedHotel) fetchRooms(selectedHotel.id)
+      
+      // Cập nhật state ngay lập tức để UI phản ánh thay đổi
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === roomId ? { ...room, price: newPrice } : room
+        )
+      )
+      
+      // Cập nhật selectedRoom nếu đang chọn phòng đó
+      if (selectedRoom && selectedRoom.id === roomId) {
+        setSelectedRoom(prev => prev ? { ...prev, price: newPrice } : null)
+      }
+      
       showSuccess('Cập nhật giá phòng thành công!')
+      setNewRoomPrice(0) // Reset after successful update
+      
+      // Fetch lại để đảm bảo đồng bộ (chạy ngầm, không ảnh hưởng UI)
+      if (selectedHotel) {
+        fetchRooms(selectedHotel.id).catch(() => {
+          // Silent fail - UI đã được cập nhật rồi
+        })
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       showError(error.response?.data?.message || 'Không thể cập nhật giá phòng. Vui lòng thử lại sau.')
@@ -455,22 +476,31 @@ const OwnerDashboard = () => {
     if (!selectedRoom) return
     try {
       const promises: Promise<unknown>[] = []
+      let updatedType: string | undefined
+      let updatedCapacity: number | undefined
+      let updatedDiscount: number | undefined
+      let updatedImage: string | undefined
+      
       if (data.type && data.type !== selectedRoom.type) {
+        updatedType = data.type
         promises.push(ownerService.updateRoomType(selectedRoom.id, data.type))
       }
       if (data.capacity && data.capacity !== selectedRoom.capacity) {
+        updatedCapacity = data.capacity
         promises.push(ownerService.updateRoomCapacity(selectedRoom.id, data.capacity))
       }
       if (
         data.discountPercent !== undefined &&
         selectedRoom.discountPercent !== data.discountPercent / 100
       ) {
+        updatedDiscount = data.discountPercent / 100
         promises.push(ownerService.updateRoomDiscount(selectedRoom.id, data.discountPercent / 100))
       }
       if (data.image && data.image instanceof File) {
         // Upload image to Cloudinary first, then update
         showSuccess('Đang tải ảnh phòng lên Cloudinary...')
         const imageResult = await cloudinaryService.uploadImage(data.image)
+        updatedImage = imageResult.secure_url
         promises.push(ownerService.updateRoomImage(selectedRoom.id, imageResult.secure_url))
       }
       if (promises.length === 0) {
@@ -478,9 +508,30 @@ const OwnerDashboard = () => {
         return
       }
       await Promise.all(promises)
+      
+      // Cập nhật state ngay lập tức để UI phản ánh thay đổi
+      const updatedRoom = { ...selectedRoom }
+      if (updatedType !== undefined) updatedRoom.type = updatedType
+      if (updatedCapacity !== undefined) updatedRoom.capacity = updatedCapacity
+      if (updatedDiscount !== undefined) updatedRoom.discountPercent = updatedDiscount
+      if (updatedImage !== undefined) updatedRoom.image = updatedImage
+      
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === selectedRoom.id ? updatedRoom : room
+        )
+      )
+      setSelectedRoom(updatedRoom)
+      
       showSuccess('Cập nhật thông tin phòng thành công')
-      if (selectedHotel) fetchRooms(selectedHotel.id)
       fetchRoomBookings(selectedRoom.id)
+      
+      // Fetch lại để đảm bảo đồng bộ (chạy ngầm, không ảnh hưởng UI)
+      if (selectedHotel) {
+        fetchRooms(selectedHotel.id).catch(() => {
+          // Silent fail - UI đã được cập nhật rồi
+        })
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } }; message?: string }
       showError(error.response?.data?.message || (error as Error).message || 'Không thể cập nhật thông tin phòng. Vui lòng thử lại sau.')
@@ -502,9 +553,24 @@ const OwnerDashboard = () => {
     if (!confirmed) return
     try {
       await ownerService.setAllDiscountPercent(selectedHotel.id, discount / 100)
+      
+      // Cập nhật state ngay lập tức để UI phản ánh thay đổi
+      setRooms(prevRooms => 
+        prevRooms.map(room => ({ ...room, discountPercent: discount / 100 }))
+      )
+      
+      // Cập nhật selectedRoom nếu đang chọn một phòng
+      if (selectedRoom) {
+        setSelectedRoom(prev => prev ? { ...prev, discountPercent: discount / 100 } : null)
+      }
+      
       showSuccess('Đã cập nhật giảm giá cho tất cả phòng')
       setBulkDiscount('')
-      fetchRooms(selectedHotel.id)
+      
+      // Fetch lại để đảm bảo đồng bộ (chạy ngầm, không ảnh hưởng UI)
+      fetchRooms(selectedHotel.id).catch(() => {
+        // Silent fail - UI đã được cập nhật rồi
+      })
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       showError(error.response?.data?.message || 'Không thể cập nhật giảm giá. Vui lòng thử lại sau.')
@@ -527,11 +593,60 @@ const OwnerDashboard = () => {
     }
     try {
       await ownerService.updateRoomStatus(roomId, status)
-      if (selectedHotel) fetchRooms(selectedHotel.id)
+      
+      // Cập nhật state ngay lập tức để UI phản ánh thay đổi
+      setRooms(prevRooms => 
+        prevRooms.map(room => 
+          room.id === roomId ? { ...room, status } : room
+        )
+      )
+      
+      // Cập nhật selectedRoom nếu đang chọn phòng đó
+      if (selectedRoom && selectedRoom.id === roomId) {
+        setSelectedRoom(prev => prev ? { ...prev, status } : null)
+      }
+      
       showSuccess('Cập nhật trạng thái phòng thành công!')
+      
+      // Fetch lại để đảm bảo đồng bộ (chạy ngầm, không ảnh hưởng UI)
+      if (selectedHotel) {
+        fetchRooms(selectedHotel.id).catch(() => {
+          // Silent fail - UI đã được cập nhật rồi
+        })
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { message?: string } } }
       showError(error.response?.data?.message || 'Không thể cập nhật trạng thái phòng. Vui lòng thử lại sau.')
+    }
+  }
+
+  const handleDeleteRoom = async (roomId: number) => {
+    const room = rooms.find(r => r.id === roomId)
+    const bookingCount = room?.bookingCount || 0
+    
+    if (bookingCount > 0) {
+      showError(`Không thể xóa phòng này vì đã có ${bookingCount} đặt phòng. Vui lòng đợi đến khi tất cả đặt phòng hoàn tất hoặc đã hủy.`)
+      return
+    }
+    
+    const confirmed = await confirm({
+      title: 'Xác nhận xóa phòng',
+      message: 'Bạn có chắc chắn muốn xóa phòng này? Hành động này không thể hoàn tác.',
+      type: 'danger',
+    })
+    if (!confirmed) return
+    try {
+      await ownerService.deleteRoom(roomId)
+      showSuccess('Xóa phòng thành công!')
+      // Cập nhật state trực tiếp để tránh loading
+      setRooms(prev => prev.filter(room => room.id !== roomId))
+      if (selectedRoom?.id === roomId) {
+        setSelectedRoom(null)
+        setRoomBookings([])
+      }
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } }
+      showError(error.response?.data?.message || 'Không thể xóa phòng. Vui lòng thử lại sau.')
     }
   }
 
@@ -773,21 +888,27 @@ const OwnerDashboard = () => {
                 ) : (
                   <div className="space-y-2 max-h-96 overflow-y-auto">
                     {rooms.map((room) => (
-                      <motion.button
+                      <motion.div
                         key={room.id}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setSelectedRoom(room)}
-                        className={`w-full text-left p-3 rounded-lg transition ${
+                        className={`w-full p-3 rounded-lg transition ${
                           selectedRoom?.id === room.id
                             ? 'bg-green-100 border-2 border-green-500'
                             : 'bg-gray-50 border-2 border-transparent hover:bg-gray-100'
                         }`}
                       >
+                        <button
+                          onClick={() => setSelectedRoom(room)}
+                          className="w-full text-left"
+                      >
                         <div className="flex items-center justify-between gap-3">
                           <div>
                             <div className="font-semibold text-sm">Phòng {room.Number}</div>
                             <div className="text-xs text-gray-600 mt-1">{room.type}</div>
+                            {room.bookingCount !== undefined && room.bookingCount > 0 && (
+                              <div className="text-xs text-blue-600 mt-1 font-semibold">
+                                📋 {room.bookingCount} đặt phòng
+                              </div>
+                            )}
                           </div>
                           <div className="text-right">
                             <div className="text-xs font-semibold text-blue-600">
@@ -811,7 +932,27 @@ const OwnerDashboard = () => {
                             className="w-full h-28 object-cover rounded-lg mt-2"
                           />
                         )}
-                      </motion.button>
+                        </button>
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteRoom(room.id)
+                            }}
+                            disabled={(room.bookingCount || 0) > 0}
+                            className={`px-2 py-1 rounded transition-all flex items-center gap-1 text-xs ${
+                              (room.bookingCount || 0) > 0
+                                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'bg-red-100 text-red-700 hover:bg-red-200'
+                            }`}
+                            aria-label="Delete room"
+                            title={(room.bookingCount || 0) > 0 ? `Không thể xóa vì có ${room.bookingCount} đặt phòng` : 'Xóa phòng'}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Xóa
+                          </button>
+                        </div>
+                      </motion.div>
                     ))}
                   </div>
                 )}
@@ -858,6 +999,22 @@ const OwnerDashboard = () => {
                       {selectedHotel.name}
                     </h3>
                     <div className="space-y-1.5">
+                      {selectedHotel.locked && (
+                        <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-sm text-red-700 font-semibold flex items-center gap-2">
+                            <span>🔒</span>
+                            <span>Khách sạn này đã bị khóa bởi admin. Khách sạn sẽ không hiển thị cho người dùng.</span>
+                          </p>
+                        </div>
+                      )}
+                      {selectedHotel.bookingCount !== undefined && selectedHotel.bookingCount > 0 && (
+                        <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                          <p className="text-sm text-blue-700 font-semibold flex items-center gap-2">
+                            <span>📋</span>
+                            <span>Khách sạn này có {selectedHotel.bookingCount} đặt phòng. Không thể xóa khách sạn khi còn đặt phòng.</span>
+                          </p>
+                        </div>
+                      )}
                       <p className="text-sm sm:text-base text-gray-700 flex items-start gap-2">
                         <span className="text-gray-500 mt-0.5">📍</span>
                         <span className="break-words flex-1">{selectedHotel.address}</span>
@@ -939,23 +1096,51 @@ const OwnerDashboard = () => {
                     </div>
                     <div className="bg-gray-50 p-3 rounded-lg">
                       <div className="text-xs text-gray-600">Số booking</div>
-                      <div className="text-sm font-semibold mt-1">{roomBookings.length}</div>
+                      <div className="text-sm font-semibold mt-1">
+                        {selectedRoom.bookingCount !== undefined ? selectedRoom.bookingCount : roomBookings.length}
+                      </div>
+                      {selectedRoom.bookingCount !== undefined && selectedRoom.bookingCount > 0 && (
+                        <div className="text-xs text-blue-600 mt-1">Không thể xóa</div>
+                      )}
                     </div>
                   </div>
 
                   {/* Quick Actions */}
                   <div className="flex flex-col sm:flex-row gap-2">
-                    <FormattedNumberInput
-                      value=""
-                      onChange={(value) => {
-                        if (value > 0) {
-                          handleUpdateRoomPrice(selectedRoom.id, value)
-                        }
-                      }}
-                      placeholder="Giá mới (VND)"
-                      className="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1 min-w-0 sm:min-w-[150px]"
-                      min={1}
-                    />
+                    <div className="flex gap-2 flex-1">
+                      <FormattedNumberInput
+                        value={newRoomPrice}
+                        onChange={setNewRoomPrice}
+                        placeholder="Giá mới (VND)"
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm flex-1 min-w-0 sm:min-w-[150px]"
+                        min={1}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && newRoomPrice > 0 && selectedRoom) {
+                            handleUpdateRoomPrice(selectedRoom.id, newRoomPrice)
+                            setNewRoomPrice(0)
+                          }
+                        }}
+                        onBlur={() => {
+                          if (newRoomPrice > 0 && selectedRoom) {
+                            handleUpdateRoomPrice(selectedRoom.id, newRoomPrice)
+                            setNewRoomPrice(0)
+                          }
+                        }}
+                      />
+                      {newRoomPrice > 0 && (
+                        <button
+                          onClick={() => {
+                            if (selectedRoom) {
+                              handleUpdateRoomPrice(selectedRoom.id, newRoomPrice)
+                              setNewRoomPrice(0)
+                            }
+                          }}
+                          className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm whitespace-nowrap"
+                        >
+                          Cập nhật
+                        </button>
+                      )}
+                    </div>
                     <select
                       value={selectedRoom.status}
                       onChange={(e) => {
@@ -1553,29 +1738,26 @@ const OwnerDashboard = () => {
         size="xl"
       >
         <HotelForm
-          onSubmit={async (data: HotelFormData, images: File[]) => {
-            if (images.length === 0) {
-              showError('Vui lòng chọn ít nhất một ảnh cho khách sạn.')
-              return
-            }
-            if (createHotelRooms.length === 0) {
-              showError('Vui lòng thêm ít nhất một phòng cho khách sạn.')
-              return
-            }
-            const invalidRoom = createHotelRooms.some(
-              (room) =>
-                !room.number.trim() ||
-                !room.price ||
-                Number(room.price) <= 0 ||
-                Number.isNaN(Number(room.price)) ||
-                !room.image,
-            )
-            if (invalidRoom) {
-              showError('Vui lòng nhập đầy đủ thông tin (số phòng, giá) và chọn ảnh cho từng phòng.')
-              return
-            }
+          onSubmit={async (data: HotelFormData, images: File[], rooms: Array<{ number: string; price: number; image: File | null }>) => {
             try {
               setCreateHotelSubmitting(true)
+              
+              // Geocode address to get latitude and longitude
+              let latitude: number | undefined
+              let longitude: number | undefined
+              try {
+                const geocodeResult = await geocodingService.geocodeAddress(data.address)
+                if (geocodeResult.status === 'OK' && geocodeResult.lat && geocodeResult.lng) {
+                  latitude = geocodeResult.lat
+                  longitude = geocodeResult.lng
+                } else {
+                  console.warn('Geocoding failed or returned no results:', geocodeResult.error)
+                }
+              } catch (geocodeError) {
+                console.error('Geocoding error:', geocodeError)
+                // Continue without lat/lng if geocoding fails
+              }
+              
               showSuccess('Đang tải ảnh khách sạn lên Cloudinary...')
               const hotelImageUrls: string[] = []
               for (const imageFile of images) {
@@ -1584,22 +1766,30 @@ const OwnerDashboard = () => {
               }
               showSuccess('Đang tải ảnh phòng lên Cloudinary...')
               const roomImageUrls: string[] = []
-              for (const room of createHotelRooms) {
+              for (const room of rooms) {
                 if (room.image) {
                   const roomImageResult = await cloudinaryService.uploadImage(room.image)
                   roomImageUrls.push(roomImageResult.secure_url)
+                } else {
+                  roomImageUrls.push('')
                 }
               }
+              
+              const roomsData = rooms.map((room, index) => ({
+                number: room.number.trim(),
+                price: room.price,
+                imageUrl: roomImageUrls[index] || undefined,
+              }))
+              
               await ownerService.createHotel(
                 {
                   name: data.name.trim(),
                   address: data.address.trim(),
                   phone: data.phone.trim(),
                   description: data.description?.trim() || '',
-                  rooms: createHotelRooms.map((room) => ({
-                    number: room.number.trim(),
-                    price: Number(room.price),
-                  })),
+                  rooms: roomsData,
+                  latitude: latitude,
+                  longitude: longitude,
                 },
                 hotelImageUrls,
                 roomImageUrls,
@@ -1615,6 +1805,8 @@ const OwnerDashboard = () => {
               setCreateHotelSubmitting(false)
             }
           }}
+          defaultRooms={[{ number: '', price: 0, image: null }]}
+          showRooms={true}
           submitLabel="Tạo khách sạn"
           isSubmitting={createHotelSubmitting}
           onCancel={() => {
@@ -1622,77 +1814,6 @@ const OwnerDashboard = () => {
             resetCreateHotelForm()
           }}
         />
-        {/* Room Form Section - Keep existing room form logic */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-gray-900">Danh sách phòng</h3>
-                  <button
-                    type="button"
-                    onClick={handleAddRoomField}
-              className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition text-sm font-semibold"
-                  >
-                    + Thêm phòng
-                  </button>
-                </div>
-          <div className="space-y-4">
-                {createHotelRooms.map((room, index) => (
-              <div key={`room-${index}`} className="bg-gray-50 rounded-2xl p-4 border-2 border-gray-200">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
-                      <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Số phòng</label>
-                        <input
-                          type="text"
-                          value={room.number}
-                          onChange={(e) => handleRoomFieldChange(index, 'number', e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          required
-                        />
-                      </div>
-                      <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Giá (VND)</label>
-                        <FormattedNumberInput
-                          value={room.price}
-                          onChange={(value) => handleRoomFieldChange(index, 'price', value.toString())}
-                          placeholder="Nhập giá phòng"
-                          className="w-full px-4 py-2.5 rounded-xl border-2 border-gray-200 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          min={1}
-                          required
-                        />
-                      </div>
-                      <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Ảnh phòng</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleRoomImageChange(index, e.target.files ? e.target.files[0] : null)}
-                          className="w-full text-sm text-gray-600"
-                          required
-                        />
-                        {room.image && (
-                      <div className="mt-2">
-                        <img
-                          src={URL.createObjectURL(room.image)}
-                          alt="Preview"
-                          className="w-full h-20 object-cover rounded-xl"
-                        />
-                          <p className="text-xs text-green-600 mt-1">Đã chọn: {room.image.name}</p>
-                      </div>
-                        )}
-                      </div>
-                    </div>
-                    {createHotelRooms.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveRoomField(index)}
-                    className="mt-3 text-sm text-red-600 hover:text-red-700 font-medium"
-                      >
-                        Xóa phòng
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-              </div>
       </AppModal>
 
       {/* Edit Hotel Modal */}
@@ -1714,10 +1835,42 @@ const OwnerDashboard = () => {
               description: hotelForm.description || selectedHotel.description || '',
             }}
             defaultImages={hotelForm.images}
-            existingImages={selectedHotel.images || []}
-            onSubmit={async (data: HotelFormData, images: File[]) => {
+            existingImages={
+              selectedHotel.images
+                ? selectedHotel.images.map(img => ({ id: img.displayOrder || 0, imageUrl: img.imageUrl }))
+                : []
+            }
+            defaultRooms={
+              selectedHotel && selectedHotel.rooms && selectedHotel.rooms.length > 0
+                ? selectedHotel.rooms.map(room => ({
+                    number: room.Number || '',
+                    price: room.price || 0,
+                    image: null,
+                    existingImageUrl: room.image,
+                  }))
+                : [{ number: '', price: 0, image: null }]
+            }
+            showRooms={true}
+            onSubmit={async (data: HotelFormData, images: File[], rooms: Array<{ number: string; price: number; image: File | null; existingImageUrl?: string }>) => {
               if (!selectedHotel) return
               try {
+                // Geocode address to get latitude and longitude
+                let latitude: number | undefined
+                let longitude: number | undefined
+                try {
+                  const geocodeResult = await geocodingService.geocodeAddress(data.address)
+                  if (geocodeResult.status === 'OK' && geocodeResult.lat && geocodeResult.lng) {
+                    latitude = geocodeResult.lat
+                    longitude = geocodeResult.lng
+                  } else {
+                    console.warn('Geocoding failed or returned no results:', geocodeResult.error)
+                  }
+                } catch (geocodeError) {
+                  console.error('Geocoding error:', geocodeError)
+                  // Continue without lat/lng if geocoding fails
+                }
+                
+                // Upload hotel images
                 let hotelImageUrls: string[] | undefined
                 if (images.length > 0) {
                   showSuccess('Đang tải ảnh lên Cloudinary...')
@@ -1727,6 +1880,22 @@ const OwnerDashboard = () => {
                     hotelImageUrls.push(imageResult.secure_url)
                   }
                 }
+                
+                // Upload room images (only new images, keep existing ones)
+                const roomsImageUrls: string[] = []
+                for (const room of rooms) {
+                  if (room.image) {
+                    // New image uploaded
+                    const response = await cloudinaryService.uploadImage(room.image)
+                    roomsImageUrls.push(response.secure_url)
+                  } else if (room.existingImageUrl) {
+                    // Keep existing image
+                    roomsImageUrls.push(room.existingImageUrl)
+                  } else {
+                    roomsImageUrls.push('')
+                  }
+                }
+                
                 await ownerService.updateHotel(
                   selectedHotel.id,
                   {
@@ -1734,6 +1903,8 @@ const OwnerDashboard = () => {
                     address: data.address,
                     phone: data.phone,
                     description: data.description || '',
+                    latitude: latitude,
+                    longitude: longitude,
                   },
                   hotelImageUrls,
                 )
